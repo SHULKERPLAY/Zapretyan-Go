@@ -1,0 +1,55 @@
+[core]
+allow_custom_extensions = false
+report_interval = 1           # In Hours
+send_empty_report = true      # Start events even if all fields are (empty: true)
+once_ctx_deadline = 3600      # Kill extension process with "mode: ONCE" after this amount of seconds
+disable_ip_comparsion = false # Whether to disable scanning banned IP diffs
+disable_community = true      # Whether to disable downloading of []community_domain_sources
+    [core.data]
+    data_dir = "./data" # Directory with necessary service files
+    method = "http"     # "http" checks for Last-Modified tag to check difference while "hash" downloading file every time and comparing hashes
+    domain_source = "https://antifilter.download/list/domains.lst" # Writen to new.txt
+    ip_source = "https://antifilter.download/list/ip.lst"          # Writen to newip.txt
+    community_domain_sources = [
+        'https://community.antifilter.download/list/domains.lst',
+        'https://raw.githubusercontent.com/1andrevich/Re-filter-lists/main/community.lst'
+    ] # Merge into one "community.txt" file
+
+[[extension]]
+name = "Discord Sender"
+path = "./extensions/discord-sender"
+enabled = true
+# Enable message types
+isban = true     # Send Banned Domains
+isunban = true   # Send Unbanned Domains
+isbanip = true   # Send Banned IP's
+isunbanip = true # Send Banned IP's
+istotal = true   # Send total statistics (dailystat extension with "latestjson = true" required)
+# Embed colors (e.g HEX_COLOR)
+banclr = "ff5e5e"
+unbanclr = "5e87ff"
+banipclr = "ffa45e"
+unbanipclr = "5effac"
+totalclr = "ffff7d"
+#Chat id's to send lists
+bancid = "000000000000000000"     # Today Banned Domains
+unbancid = "000000000000000000"   # Today Unbanned Domains
+banipcid = "000000000000000000"   # Today Banned IP's
+unbanipcid = "000000000000000000" # Today Unbanned IP's
+totalcid = "000000000000000000"   # Daily and total Statistics (dailystat extension with "latestjson = true" required)
+    [extension.override]
+    iconurl = ""
+    embed_author_name = "Запретян <3"
+
+[[extension]]
+name = "File Logger"
+path = "./extensions/localfs"
+enabled = false
+save_last_entries = 100 # Amount of latest files to be saved
+
+[[extension]]
+name = "Daily Statistics"
+path = "./extensions/dailystat"
+enabled = false
+latestjson = true # Enable JSON with last day data about ban counters 
+analytics = true  # Enable bans data collecting in analytics.csv

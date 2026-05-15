@@ -1,0 +1,41 @@
+{
+    "ver": 1, 
+    "type": "rkn",
+    "kill": false,
+    "diff": {
+        "banned": {
+            "empty": false,
+            "length": 3,
+            "data": [
+                "0196.example",
+                "0199.example",
+                "example.com"
+            ]
+        },
+        "unbanned": {
+            "empty": false,
+            "length": 2,
+            "data": [
+                "1example.ru",
+                "2.example.top"
+            ]
+        },
+        "banned_ip": {
+            "empty": false,
+            "length": 4,
+            "data": [
+                "107.172.69.236",
+                "38.180.129.6",
+                "52.59.207.253",
+                "13.33.232.57"
+            ]
+        },
+        "unbanned_ip": {
+            "empty": true,
+            "length": 0,
+            "data": []
+        }
+    }
+}
+
+
