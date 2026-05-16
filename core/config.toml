@@ -1,8 +1,8 @@
 [core]
 allow_custom_extensions = false
-report_interval = 1           # In Hours
+report_interval = 1           # In Hours (Up to 24)
 send_empty_report = true      # Start events even if all fields are (empty: true)
-once_ctx_deadline = 3600      # Kill extension process with "mode: ONCE" after this amount of seconds
+once_ctx_deadline = 3600      # Kill extension process with "mode: "ONCE"" after this amount of seconds
 disable_ip_comparsion = false # Whether to disable scanning banned IP diffs
 disable_community = true      # Whether to disable downloading of []community_domain_sources
     [core.data]
@@ -17,39 +17,65 @@ disable_community = true      # Whether to disable downloading of []community_do
 
 [[extension]]
 name = "Discord Sender"
+desc = "Send new changes as embeds using your Discord-Bot"
+source = "https://github.com/SHULKERPLAY/Zapretyan-Go"
 path = "./extensions/discord-sender"
 enabled = true
+BOT_TOKEN = ""
 # Enable message types
 isban = true     # Send Banned Domains
 isunban = true   # Send Unbanned Domains
 isbanip = true   # Send Banned IP's
 isunbanip = true # Send Banned IP's
 istotal = true   # Send total statistics (dailystat extension with "latestjson = true" required)
-# Embed colors (e.g HEX_COLOR)
-banclr = "ff5e5e"
-unbanclr = "5e87ff"
-banipclr = "ffa45e"
-unbanipclr = "5effac"
-totalclr = "ffff7d"
 #Chat id's to send lists
-bancid = "000000000000000000"     # Today Banned Domains
-unbancid = "000000000000000000"   # Today Unbanned Domains
-banipcid = "000000000000000000"   # Today Banned IP's
-unbanipcid = "000000000000000000" # Today Unbanned IP's
-totalcid = "000000000000000000"   # Daily and total Statistics (dailystat extension with "latestjson = true" required)
+bancid = ""     # ChannelID: Today Banned Domains
+unbancid = ""   # ChannelID: Today Unbanned Domains
+banipcid = ""   # ChannelID: Today Banned IP's
+unbanipcid = "" # ChannelID: Today Unbanned IP's
+totalcid = ""   # ChannelID: Daily and total Statistics (dailystat extension with "latestjson = true" required)
     [extension.override]
-    iconurl = ""
+    iconurl = "https://lunarcreators.ru/wp-content/uploads/2025/11/discordiconmini.webp"
     embed_author_name = "Запретян <3"
+    embed_author_url = "https://discord.com/discovery/applications/907372459144147035"
+    # Embed colors (e.g HEX_COLOR)
+    banclr = "ff5e5e"
+    unbanclr = "5e87ff"
+    banipclr = "ffa45e"
+    unbanipclr = "5effac"
+    totalclr = "ffff7d"
+        [extension.override.locale]
+        stats_date = "📌 Статистика за "
+        stats_domains = "ДОМЕНЫ"
+        stats_ips = "IP АДРЕСА"
+        stats_past24h = "за прошедшие сутки"
+        today_banned = "Сегодня заблокировано"
+        today_unbanned = "Сегодня разблокировано"
+        total_banned = "Всего заблокировано"
+        domains_newbanned = "В список ограниченных ресурсов добавили:"
+        domains_banned = "Заблокировано доменов"
+        domains_newunbanned = "Из реестра удалены ресурсы:"
+        domains_unbanned = "Разблокировано доменов"
+        ip_newbanned = "В реестр добавили IP адреса:"
+        ip_banned = "Заблокировано IP адресов"
+        ip_newunbanned = "Из реестра удалены IP адреса:"
+        ip_unbanned = "Разблокировано IP адресов"
 
 [[extension]]
 name = "File Logger"
+desc = "Write every event JSON into ./Data/localfs_logger"
+source = "https://github.com/SHULKERPLAY/Zapretyan-Go"
 path = "./extensions/localfs"
 enabled = false
 save_last_entries = 100 # Amount of latest files to be saved
 
+
 [[extension]]
 name = "Daily Statistics"
+desc = "Write daily statistics to today's JSON and historical CSV in Data folder"
+source = "https://github.com/SHULKERPLAY/Zapretyan-Go"
 path = "./extensions/dailystat"
 enabled = false
-latestjson = true # Enable JSON with last day data about ban counters 
-analytics = true  # Enable bans data collecting in analytics.csv
+latestjson = true      # Enable JSON with last day data about ban counters 
+analytics = true       # Enable bans data collecting in analytics.csv
+day_start = "00:00:00" # Local time write daily stats and reset daily counters

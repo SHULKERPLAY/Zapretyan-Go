@@ -2,6 +2,15 @@
     "ver": 1, 
     "type": "rkn",
     "kill": false,
+    "cfg": {
+      "analytics": true,
+      "desc": "Write JSON daily statistics in Data folder",
+      "enabled": true,
+      "latestjson": true,
+      "name": "Daily Statistics",
+      "path": "./extensions/dailystat",
+      "source": "https://github.com/SHULKERPLAY/Zapretyan-Go"
+    },
     "diff": {
         "banned": {
             "empty": false,
