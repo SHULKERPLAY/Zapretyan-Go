@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 	"zapretyan-go/internal/config"
@@ -19,7 +21,9 @@ type Handshake struct {
 }
 
 func validateAndBurn(name string, version string) bool {
-	if config.Params.AllowCustom { return true }
+	if config.Params.AllowCustom {
+		return true
+	}
 
 	// Check if known plugin
 	expectedTag, exists := config.Params.Registry[name]
@@ -39,7 +43,7 @@ func validateAndBurn(name string, version string) bool {
 
 func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.ExtensionState, error) {
 	name, _ := rawCfg["name"].(string)
-	path, _ := rawCfg["path"].(string)
+	rawpath, _ := rawCfg["path"].(string)
 	enabled, _ := rawCfg["enabled"].(bool)
 
 	if !enabled {
@@ -51,12 +55,13 @@ func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.Extension
 		return nil, fmt.Errorf("INVALID PLUGIN NAME!")
 	}
 
-	// TODO: ADAPTIVE OS EXECUTABLE PATH with config.preparePath()
-
-	cleanPath := strings.TrimSpace(path)
+	cleanPath := strings.TrimSpace(rawpath)
 	if cleanPath == "" {
 		return nil, fmt.Errorf("Path of plugin %v is not valid!", name)
 	}
+
+	// Build OS specific path
+	path := filepath.Join(config.Params.AppPath, config.ExecPath(rawpath))
 
 	// Start process to validate
 	cmd := exec.Command(path)
@@ -94,7 +99,7 @@ func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.Extension
 		if !validateAndBurn(name, hs.Version) {
 			return nil, fmt.Errorf("Plugin %v already loaded or not valid! To load custom plugins set 'allow_custom_extensions = true' in config.toml", name)
 		}
-		if hs.JsonVer != config.Params.JsonVer { 
+		if hs.JsonVer != config.Params.JsonVer {
 			slog.Warn("Plugin JSON version mismatch! Plugin can expirience issues parsing data", "corejsonver", config.Params.JsonVer, "extjsonver", hs.JsonVer)
 		}
 		mode = hs.Mode
@@ -151,7 +156,11 @@ func InitExtensions() {
 		}
 		extensionhandler.ValidExtensions = append(extensionhandler.ValidExtensions, extState)
 	}
-	slog.Info("Extension initialize completed", "valid_count", len(extensionhandler.ValidExtensions))
 
-	extensionhandler.StartSteamExtensions()
+	if len(extensionhandler.ValidExtensions) < 1 {
+		slog.Error("FATAL: AT LEAST ONE EXTENSION MUST BE STARTED!")
+		os.Exit(1)
+	}
+
+	slog.Info("Extension initialize completed", "valid_count", len(extensionhandler.ValidExtensions))
 }

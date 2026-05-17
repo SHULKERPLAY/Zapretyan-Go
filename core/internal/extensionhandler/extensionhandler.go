@@ -6,12 +6,10 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
-	"os"
 	"os/exec"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
+	"zapretyan-go/internal/config"
 )
 
 type ExtensionState struct {
@@ -122,30 +120,32 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 	}
 }
 
-func StartSteamExtensions() {
-	// Core lifecycle manage context
-	ctx, cancel := context.WithCancel(context.Background())
-	var wg sync.WaitGroup
+func StartSteamExtensions(ctx context.Context, globalWg *sync.WaitGroup) {
+	defer globalWg.Done() // When all local workgroups has stopped we send wg.Done() to top function
+
+	// Create localWaitgroup for handling started extensions
+	var localWg sync.WaitGroup
+
+	streamCnt := 0
 
 	// Starting STREAM extensions
 	for _, ext := range ValidExtensions {
 		if ext.Mode == "STREAM" {
-			wg.Add(1)
-			go superviseStream(ctx, &wg, ext)
+			streamCnt++
+			localWg.Add(1)
+			go superviseStream(ctx, &localWg, ext)
 		}
 	}
 
-	// Catch system signals
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	time.Sleep(5 * time.Second) // Giving extensions some time for start their internal processes
+	config.Params.ExtReady = true // Extensions loaded
 
-	<-sigCh // Block until catch interrupt
-	slog.Info("Catch interrupt. Core shutdown...")
-
-	// Graceful shutdown
-	cancel() // Send cancel signal to all STREAM goroutines
+	if streamCnt < 1 {
+		slog.Info("No STREAM extensions found")
+		return // Stop function if no extensions to start
+	}
 
 	// Wait until all plugins stop
-	wg.Wait()
+	localWg.Wait()
 	slog.Info("All extensions stopped.")
 }
