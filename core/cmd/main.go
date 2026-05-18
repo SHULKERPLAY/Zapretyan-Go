@@ -24,6 +24,8 @@ func main() {
 
 	// Default params
 	config.Params.Ver = "0.1.0"
+	// Version of JSON message payload
+	config.Params.JsonVer = 1
 	
 	// Load configured extensions
 	extensionloader.InitExtensions()

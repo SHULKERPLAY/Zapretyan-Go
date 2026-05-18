@@ -41,6 +41,7 @@ type CmdMessage struct {
 	Ver  int    `json:"ver"`
 	Type string `json:"type"`
 	Kill bool   `json:"kill"`
+	Cfg map[string]interface{} `json:"cfg"`
 }
 
 // Registry of validated Extensions
@@ -48,11 +49,13 @@ var ValidExtensions []*ExtensionState
 
 // superviseStream handles plugin and restarting it if fallen
 func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionState) {
+	// WaitGroup -1 when exited from for{} loop
 	defer wg.Done()
 	defer slog.Debug("superviseStream() ended", "extension", ext.Name)
 
+	// Return from loop only if core context was closed
 	for {
-		// If core shutting down - not restarting
+		// If extension was killed by end of context - Not restarting it
 		if ctx.Err() != nil {
 			return
 		}
@@ -94,15 +97,19 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 			io.Copy(io.Discard, ext.Stdout) // Purge all further data from buffer (As it not needed anymore)
 		}()
 
+		// Send configuration on extension start
+		slog.Info("Sent config to extension", "name", ext.Name)
+		json.NewEncoder(ext.Stdin).Encode(CmdMessage{Ver: config.Params.JsonVer, Type: "cmd", Kill: false, Cfg: ext.Config})
+
 		// Waiting for process end
 		done := make(chan error, 1)
 		go func() { done <- cmd.Wait() }()
 
 		select {
-		// Core shutdown (recieved SIG)
+		// Core shutdown (Interrupt closing core context)
 		case <-ctx.Done():
 			slog.Info("Sent shutdown message to extension...", "name", ext.Name)
-			json.NewEncoder(ext.Stdin).Encode(CmdMessage{Ver: 1, Type: "cmd", Kill: true})
+			json.NewEncoder(ext.Stdin).Encode(CmdMessage{Ver: config.Params.JsonVer, Type: "cmd", Kill: true, Cfg: make(map[string]interface{})})
 
 			select {
 			case <-done:
@@ -113,11 +120,12 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 			}
 			return
 
-		// Extension crashed
+		// If context is alive but extension process is dead
 		case err := <-done:
 			slog.Warn("STREAM extension has crashed. Restarting...", "name", ext.Name, "err", err)
 			time.Sleep(5 * time.Second) // Restart Delay
 		}
+		// Loop restart if select is ended
 	}
 }
 

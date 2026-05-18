@@ -368,9 +368,6 @@ func InitConfig() {
 	DataParams = &DataCollection{}
 	RawCfg = &RootConfig{}
 
-	// Version of JSON message payload
-	Params.JsonVer = 1
-
 	Params.Registry = map[string]string{
 		"Discord Sender":   "@36hbsug1",
 		"Daily Statistics": "@f61tsi7f",

@@ -104,6 +104,7 @@ func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.Extension
 		if hs.JsonVer != config.Params.JsonVer {
 			slog.Warn("Plugin JSON version mismatch! Plugin can expirience issues parsing data", "corejsonver", config.Params.JsonVer, "extjsonver", hs.JsonVer)
 		}
+		if mode != "STREAM" && mode != "ONCE" { return nil, fmt.Errorf("EXTENSION MODE NOT 'ONCE' OR 'STREAM'") }
 		mode = hs.Mode
 		slog.Info("Handshake completed", "name", name, "mode", mode, "version", hs.Version)
 	case err := <-errCh:
@@ -115,7 +116,7 @@ func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.Extension
 	}
 
 	// Send shutdown cmd
-	killCmd := extensionhandler.CmdMessage{Ver: 1, Type: "cmd", Kill: true}
+	killCmd := extensionhandler.CmdMessage{Ver: 1, Type: "cmd", Kill: true, Cfg: make(map[string]interface{})}
 	json.NewEncoder(stdin).Encode(killCmd)
 
 	// Chan for waiting process end
