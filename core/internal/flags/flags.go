@@ -12,17 +12,14 @@ type AppArgs struct {
 	Loglevel    string
 }
 
-func init() {
+func ParseFlags() {
+	defer slog.Debug("ParseFlags() ended")
 	// Init Args
 	Args = &AppArgs{}
-	parseFlags()
-}
 
-func parseFlags() {
-	slog.Debug("Parsing flags...")
+	slog.Info("Parsing flags...")
 
 	// Define flags (name, default, description)
-	defer slog.Debug("parseFlags() ended")
 	flag.StringVar(&Args.Loglevel, "log", "", "Set log level: 'info', 'warn', 'error' or 'debug'")
 	flag.Parse()
 
@@ -32,9 +29,9 @@ func parseFlags() {
 // Usage: flagRequired(Args.Loglevel)
 func flagRequired(test string) {
 	defer slog.Debug("flagRequired() ended")
-	slog.Debug("Reqired!", "flag", test)
+	slog.Debug("Required!", "flag", test)
 	if test == "" {
-		slog.Error("Missing required arguments!")
+		slog.Error("FATAL: Missing required arguments!")
 		flag.Usage()
 		os.Exit(1)
 	}

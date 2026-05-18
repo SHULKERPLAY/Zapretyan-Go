@@ -9,19 +9,22 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"zapretyan-go/internal/logger"
 	"zapretyan-go/internal/config"
 	"zapretyan-go/internal/extensionhandler"
 	"zapretyan-go/internal/extensionloader"
-	"zapretyan-go/internal/logger"
 )
 
 func main() {
-	// Default params
-	config.Params.Ver = "0.1.0"
-
 	// Start logger and parse flags
 	logger.SetupLogger()
 
+	// Load Configuration
+	config.InitConfig()
+
+	// Default params
+	config.Params.Ver = "0.1.0"
+	
 	// Load configured extensions
 	extensionloader.InitExtensions()
 
@@ -42,6 +45,7 @@ func main() {
 }
 
 func WaitForSystemSignals(cancel context.CancelFunc, wg *sync.WaitGroup) {
+	defer slog.Debug("WaitForSystemSignals() ended")
 	sigCh := make(chan os.Signal, 1)
 
 	// Catch interrupts

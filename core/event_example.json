@@ -19,7 +19,8 @@
                 "0196.example",
                 "0199.example",
                 "example.com"
-            ]
+            ],
+            "total": 1301248
         },
         "unbanned": {
             "empty": false,
@@ -37,7 +38,8 @@
                 "38.180.129.6",
                 "52.59.207.253",
                 "13.33.232.57"
-            ]
+            ],
+            "total": 48181
         },
         "unbanned_ip": {
             "empty": true,

@@ -10,6 +10,10 @@ import (
 
 func SetupLogger() {
 	defer slog.Debug("setupLogger() ended")
+
+	// Parse App Flags
+	flags.ParseFlags()
+
 	// Default Level: Info
 	level := slog.LevelInfo
 	addsource := false

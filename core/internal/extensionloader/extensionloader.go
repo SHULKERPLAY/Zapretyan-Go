@@ -21,6 +21,7 @@ type Handshake struct {
 }
 
 func validateAndBurn(name string, version string) bool {
+	defer slog.Debug("validateAndBurn() ended")
 	if config.Params.AllowCustom {
 		return true
 	}
@@ -42,6 +43,7 @@ func validateAndBurn(name string, version string) bool {
 }
 
 func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.ExtensionState, error) {
+	defer slog.Debug("verifyExtension() ended")
 	name, _ := rawCfg["name"].(string)
 	rawpath, _ := rawCfg["path"].(string)
 	enabled, _ := rawCfg["enabled"].(bool)
@@ -144,6 +146,7 @@ func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.Extension
 }
 
 func InitExtensions() {
+	defer slog.Debug("InitExtensions() ended")
 	// Handshake phase
 	slog.Info("Extension Initializing started")
 	for _, rawCfg := range config.RawCfg.Extensions {

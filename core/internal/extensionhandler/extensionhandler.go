@@ -49,6 +49,7 @@ var ValidExtensions []*ExtensionState
 // superviseStream handles plugin and restarting it if fallen
 func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionState) {
 	defer wg.Done()
+	defer slog.Debug("superviseStream() ended", "extension", ext.Name)
 
 	for {
 		// If core shutting down - not restarting
@@ -122,6 +123,7 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 
 func StartSteamExtensions(ctx context.Context, globalWg *sync.WaitGroup) {
 	defer globalWg.Done() // When all local workgroups has stopped we send wg.Done() to top function
+	defer slog.Debug("StartSteamExtensions() ended")
 
 	// Create localWaitgroup for handling started extensions
 	var localWg sync.WaitGroup
