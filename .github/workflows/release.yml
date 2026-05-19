@@ -30,6 +30,10 @@ jobs:
       with:
         go-version: '1.26.3'
         cache: true
+        # Define mask to search ALL go.mod files in project
+        cache-dependency-path: |
+          core/go.mod
+          extensions/**/go.mod
 
     - name: Determine Tag Name
       id: get_tag
@@ -44,6 +48,9 @@ jobs:
 
     - name: Build and Assemble Structure
       run: |
+        # Save absolute path to repo root
+        ROOT_DIR=$(pwd)
+        
         # Prepare environment variables
         export GOOS=${{ matrix.goos }}
         export GOARCH=${{ matrix.goarch }}
@@ -58,20 +65,18 @@ jobs:
         
         # COMPILE CORE
         echo "Compiling core (Core)..."
-        cd core
-        go build -v -ldflags="-s -w" -o "../$BUILD_DIR/core$EXT" ./cmd/main.go
+        cd "$ROOT_DIR/core"
+        go build -v -ldflags="-s -w" -o "$ROOT_DIR/$BUILD_DIR/core$EXT" ./cmd/main.go
         
         # Copy config.toml from core to release root
         if [ -f "config.toml" ]; then
-          cp config.toml "../$BUILD_DIR/"
+          cp config.toml "$ROOT_DIR/$BUILD_DIR/"
         else
-          touch "../$BUILD_DIR/config.toml"
+          touch "$ROOT_DIR/$BUILD_DIR/config.toml"
         fi
         
-        # Return to repo root
-        cd ..
-        
         # COMPILE EXTENSIONS
+        cd "$ROOT_DIR"
         if [ -d "extensions" ]; then
           for ext_dir in extensions/*/; do
             if [ -d "$ext_dir" ]; then
@@ -80,19 +85,19 @@ jobs:
               echo "Process extension: $EXT_NAME"
               
               # Changing dir to extension's
-              cd "$ext_dir"
+              cd "$ROOT_DIR/$ext_dir"
               
               # Check structure: complex (with cmd dir) or simple (with main.go)
               if [ -d "cmd" ]; then
                 echo "-> Located structure cmd/ in $EXT_NAME"
-                go build -v -ldflags="-s -w" -o "../../$BUILD_DIR/extensions/${EXT_NAME}$EXT" ./cmd/main.go
+                go build -v -ldflags="-s -w" -o "$ROOT_DIR/$BUILD_DIR/extensions/${EXT_NAME}$EXT" ./cmd/main.go
               else
                 echo "-> Simple structure in $EXT_NAME"
-                go build -v -ldflags="-s -w" -o "../../$BUILD_DIR/extensions/${EXT_NAME}$EXT" .
+                go build -v -ldflags="-s -w" -o "$ROOT_DIR/$BUILD_DIR/extensions/${EXT_NAME}$EXT" .
               fi
               
-              # Return to repo root for next iteration
-              cd ../..
+              # ALWAYS Return to repo root for next iteration
+              cd "$ROOT_DIR"
             fi
           done
         fi
