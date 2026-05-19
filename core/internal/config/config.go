@@ -162,6 +162,7 @@ func parseAppConfig() {
 			continue
 		}
 		validcomds = append(validcomds, cds)
+		slog.Info("", "community_source", cds)
 	}
 	slog.Info("Community sources check complete", "valid_count", len(validcomds))
 	if !Params.DisableCommunity && len(validcomds) < 1 {
