@@ -44,7 +44,7 @@ jobs:
           TAG_NAME=$(git describe --tags $(git rev-list --tags --max-count=1))
         fi
         echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
-        echo "Используется тег: $TAG_NAME"
+        echo "Using TAG: $TAG_NAME"
 
     - name: Build and Assemble Structure
       run: |
@@ -60,7 +60,7 @@ jobs:
         if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
         
         # Name of target folder for archive
-        BUILD_DIR="my-app-${{ matrix.goos }}-${{ matrix.goarch }}"
+        BUILD_DIR="zapretyan-go-${{ matrix.goos }}-${{ matrix.goarch }}"
         mkdir -p "$BUILD_DIR/extensions"
         
         # COMPILE CORE
@@ -114,8 +114,11 @@ jobs:
           7z a -mx=9 "${ARCHIVE_NAME}.7z" "./${ARCHIVE_SRC}/*"
           echo "RELEASE_ASSET=${ARCHIVE_NAME}.7z" >> $GITHUB_ENV
         else
-          # Compressing into tar.gz (GZIP) for Linux (max compression)
-          GZIP=-9 tar -czf "${ARCHIVE_NAME}.tar.gz" -C "./${ARCHIVE_SRC}" .
+          # Compressing into tar.gz (GZIP) for Linux (max compression "gzip -9")
+          cd "${ARCHIVE_SRC}"
+          tar --use-compress-program="gzip -9" -czf "${ROOT_DIR}/${ARCHIVE_NAME}.tar.gz" *
+          cd "${ROOT_DIR}"
+
           echo "RELEASE_ASSET=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
         fi
 
