@@ -115,10 +115,7 @@ jobs:
           echo "RELEASE_ASSET=${ARCHIVE_NAME}.7z" >> $GITHUB_ENV
         else
           # Compressing into tar.gz (GZIP) for Linux (max compression "gzip -9")
-          cd "${ARCHIVE_SRC}"
-          tar --use-compress-program="gzip -9" -cf "${ROOT_DIR}/${ARCHIVE_NAME}.tar.gz" *
-          cd "${ROOT_DIR}"
-
+          tar --use-compress-program="gzip -9" -cf "${ARCHIVE_NAME}.tar.gz" -C "./${ARCHIVE_SRC}" .
           echo "RELEASE_ASSET=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
         fi
 
