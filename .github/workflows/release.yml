@@ -1,0 +1,124 @@
+name: Advanced Release Matrix (Monorepo)
+
+on:
+  push:
+    tags:
+      - 'v*' # Autostart on push tag with prefix "v" (e.g. v1.1.1)
+  workflow_dispatch: # Button for force build without tag change
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Package
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        goos: [linux, windows]
+        goarch: [amd64, arm64]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0 # Needed for manual start for tag history
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: '1.26.3'
+        cache: true
+
+    - name: Determine Tag Name
+      id: get_tag
+      run: |
+        if [ "${{ github.ref_type }}" = "tag" ]; then
+          TAG_NAME="${{ github.ref_name }}"
+        else
+          TAG_NAME=$(git describe --tags $(git rev-list --tags --max-count=1))
+        fi
+        echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
+        echo "Используется тег: $TAG_NAME"
+
+    - name: Build and Assemble Structure
+      run: |
+        # Prepare environment variables
+        export GOOS=${{ matrix.goos }}
+        export GOARCH=${{ matrix.goarch }}
+        export CGO_ENABLED=0
+        
+        EXT=""
+        if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
+        
+        # Name of target folder for archive
+        BUILD_DIR="my-app-${{ matrix.goos }}-${{ matrix.goarch }}"
+        mkdir -p "$BUILD_DIR/extensions"
+        
+        # COMPILE CORE
+        echo "Compiling core (Core)..."
+        cd core
+        go build -v -ldflags="-s -w" -o "../$BUILD_DIR/core$EXT" ./cmd/main.go
+        
+        # Copy config.toml from core to release root
+        if [ -f "config.toml" ]; then
+          cp config.toml "../$BUILD_DIR/"
+        else
+          touch "../$BUILD_DIR/config.toml"
+        fi
+        
+        # Return to repo root
+        cd ..
+        
+        # COMPILE EXTENSIONS
+        if [ -d "extensions" ]; then
+          for ext_dir in extensions/*/; do
+            if [ -d "$ext_dir" ]; then
+              # Get clean extension folder name (e.g. localfs or discord-sender)
+              EXT_NAME=$(basename "$ext_dir")
+              echo "Process extension: $EXT_NAME"
+              
+              # Changing dir to extension's
+              cd "$ext_dir"
+              
+              # Check structure: complex (with cmd dir) or simple (with main.go)
+              if [ -d "cmd" ]; then
+                echo "-> Located structure cmd/ in $EXT_NAME"
+                go build -v -ldflags="-s -w" -o "../../$BUILD_DIR/extensions/${EXT_NAME}$EXT" ./cmd/main.go
+              else
+                echo "-> Simple structure in $EXT_NAME"
+                go build -v -ldflags="-s -w" -o "../../$BUILD_DIR/extensions/${EXT_NAME}$EXT" .
+              fi
+              
+              # Return to repo root for next iteration
+              cd ../..
+            fi
+          done
+        fi
+        
+        # Save folder name for compressing step
+        echo "ARCHIVE_SRC=$BUILD_DIR" >> $GITHUB_ENV
+
+    - name: Compress Archives
+      run: |
+        ARCHIVE_NAME="${{ env.ARCHIVE_SRC }}"
+        
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          # Compressing 7zip for windows (max compression -mx=9)
+          7z a -mx=9 "${ARCHIVE_NAME}.7z" "./${ARCHIVE_SRC}/*"
+          echo "RELEASE_ASSET=${ARCHIVE_NAME}.7z" >> $GITHUB_ENV
+        else
+          # Compressing into tar.gz (GZIP) for Linux (max compression)
+          GZIP=-9 tar -czf "${ARCHIVE_NAME}.tar.gz" -C "./${ARCHIVE_SRC}" .
+          echo "RELEASE_ASSET=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
+        fi
+
+    - name: Upload or Update Release Asset
+      uses: softprops/action-gh-release@v3
+      with:
+        tag_name: ${{ env.RELEASE_TAG }}
+        files: ${{ env.RELEASE_ASSET }}
+        make_latest: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
