@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         goos: [linux, windows]
-        goarch: [amd64, arm64]
+        goarch: [amd64, arm64, 386]
 
     steps:
     - name: Checkout code
@@ -46,6 +46,44 @@ jobs:
         echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
         echo "Using TAG: $TAG_NAME"
 
+    - name: Install go-winres & Process Resources for core and extensions
+      if: matrix.goos == 'windows'
+      run: |
+        # Save absolute path to repo root
+        ROOT_DIR=$(pwd)
+
+        go install github.com/tc-hib/go-winres@v0.3.3
+
+        # This step creates a .syso file which go build can pick automaticly
+        if [ -e "$ROOT_DIR/core/winres/winres.json" ]; then
+          cd "$ROOT_DIR/core"
+          $(go env GOPATH)/bin/go-winres make --arch amd64,arm64,386 --out ./cmd/rsrc
+          cd "$ROOT_DIR"
+        fi
+
+        # Generate .syso files for extensions that have winres.json
+        cd "$ROOT_DIR"
+        if [ -d "extensions" ]; then
+          for ext_dir in extensions/*/; do
+            if [ -e "$ROOT_DIR/$ext_dir/winres/winres.json" ]; then
+              # Changing dir to extension's
+              cd "$ROOT_DIR/$ext_dir"
+              
+              # Check structure: complex (with cmd dir) or simple (with main.go)
+              if [ -d "cmd" ]; then
+                echo "-> Located structure cmd/ in $ext_dir"
+                $(go env GOPATH)/bin/go-winres make --arch amd64,arm64,386 --out ./cmd/rsrc
+              else
+                echo "-> Simple structure in $ext_dir"
+                $(go env GOPATH)/bin/go-winres make --arch amd64,arm64,386 --out ./rsrc
+              fi
+
+              # ALWAYS Return to repo root for next iteration
+              cd "$ROOT_DIR"
+            fi
+          done
+        fi
+
     - name: Build and Assemble Structure
       run: |
         # Save absolute path to repo root
@@ -65,8 +103,9 @@ jobs:
         
         # COMPILE CORE
         echo "Compiling core (Core)..."
+        cd "$ROOT_DIR/core/cmd"
+        go build -v -trimpath -ldflags="-s -w -buildid=" -o "$ROOT_DIR/$BUILD_DIR/core$EXT" .
         cd "$ROOT_DIR/core"
-        go build -v -ldflags="-s -w" -o "$ROOT_DIR/$BUILD_DIR/core$EXT" ./cmd/main.go
         
         # Copy config.toml from core to release root
         if [ -f "config.toml" ]; then
@@ -90,10 +129,11 @@ jobs:
               # Check structure: complex (with cmd dir) or simple (with main.go)
               if [ -d "cmd" ]; then
                 echo "-> Located structure cmd/ in $EXT_NAME"
-                go build -v -ldflags="-s -w" -o "$ROOT_DIR/$BUILD_DIR/extensions/${EXT_NAME}$EXT" ./cmd/main.go
+                cd cmd
+                go build -v -trimpath -ldflags="-s -w -buildid=" -o "$ROOT_DIR/$BUILD_DIR/extensions/${EXT_NAME}$EXT" .
               else
                 echo "-> Simple structure in $EXT_NAME"
-                go build -v -ldflags="-s -w" -o "$ROOT_DIR/$BUILD_DIR/extensions/${EXT_NAME}$EXT" .
+                go build -v -trimpath -ldflags="-s -w -buildid=" -o "$ROOT_DIR/$BUILD_DIR/extensions/${EXT_NAME}$EXT" .
               fi
               
               # ALWAYS Return to repo root for next iteration
