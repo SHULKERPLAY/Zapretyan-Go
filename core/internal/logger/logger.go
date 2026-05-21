@@ -83,7 +83,7 @@ func logRotate(dOutput io.Writer) (io.Writer, bool) {
 	// Lumberjack automaticly creates a file and tracking it size
 	logRoller := &lumberjack.Logger{
 		Filename:   logPath,
-		MaxSize:    5,    // Max filesize in MB to new rotation
+		MaxSize:    10,    // Max filesize in MB to new rotation
 		MaxBackups: 5,    // Store max amount of files
 		MaxAge:     90,   // Store logs this amount of days
 		Compress:   true, // Compress old logs into tar.gz (GZip)

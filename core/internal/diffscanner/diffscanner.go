@@ -3,13 +3,23 @@ package diffscanner
 import (
 	"context"
 	"log/slog"
-	"net/http"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
 	"zapretyan-go/internal/config"
+	"zapretyan-go/internal/downloader"
+	"zapretyan-go/internal/hasher"
 )
+
+// Define filenames
+const newDomainFN = "new.txt"
+const oldDomainFN = "old.txt"
+const tmpDomainFN = "new.tmp"
+const newIpFN = "newip.txt"
+const oldIpFN = "oldip.txt"
+const tmpIpFN = "newip.tmp"
+const communityFN = "community.txt"
+const tmpCommunityFN = "community.tmp"
 
 func Handler(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done() // Report that function is ended
@@ -27,7 +37,7 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 		case <-ticker.C:
 			// Scan logic
 			slog.Info("Scanning for new changes...")
-			// performScan()
+			scan(ctx)
 
 		case <-ctx.Done():
 			// Graceful shutdown
@@ -47,72 +57,111 @@ func scan(ctx context.Context) {
 		return
 	}
 
-	switch config.DataParams.Method {
-	case "http":
-		//
-	case "hash":
-		//
+	// Define updates state
+	isDomain, isIp, isCommunity := defineUpdates()
+
+	if ctx.Err() != nil {
+		slog.Warn("Scanner stopped by context")
+		return
 	}
+	
 }
 
-// isLocalFileOutdated checks if local file is outdated comparing to remote server.
-// Return true if file has updates or false if file on remote server same or older.
-// Requires URL to remote file, Local directory of compared file and local file name.
-func isLocalFileOutdated(fileURL string, localDir string, fileName string) bool {
-	defer slog.Debug("isLocalFileOutdated() ended")
+// Check which lists has updates. True means need to check difference
+// Also downloading lists if need to calculate diff
+func defineUpdates() (bool, bool, bool) {
+	defer slog.Debug("defineUpdates() ended")
+
+	var isDomain 	bool // Is newer domains available?
+	var isIp 		bool // Is newer ips available?
+	var isCommunity bool // Is newer community available?
+
+	dpath := filepath.Join(config.DataParams.DataDirectory, newDomainFN)  // Full path to domains file
+	dpatht := filepath.Join(config.DataParams.DataDirectory, tmpDomainFN) // Full path to temporary domains file
+	ipath := filepath.Join(config.DataParams.DataDirectory, newIpFN)	  // Full path to IPs file
+	ipatht := filepath.Join(config.DataParams.DataDirectory, tmpIpFN)	  // Full path to temporary IPs file
+
+	switch config.DataParams.Method {
+	case "http":
+		// Check remote http server
+		isDomain = downloader.IsLocalFileOutdated(config.DataParams.DomainSource, config.DataParams.DataDirectory, newDomainFN)
+		isIp = downloader.IsLocalFileOutdated(config.DataParams.IpSource, config.DataParams.DataDirectory, newIpFN)
+		isCommunity = checkCommunityUpdates(config.DataParams.DataDirectory, communityFN)
+
+		if isDomain {
+			err := downloader.DownloadFile(config.DataParams.DomainSource, dpatht)
+			if err != nil {
+				slog.Error("Failed to GET file", "url", config.DataParams.DomainSource, "name", tmpDomainFN, "err", err)
+				isDomain = false
+			}
+		}
+
+		if isIp {
+			err := downloader.DownloadFile(config.DataParams.IpSource, ipatht)
+			if err != nil {
+				slog.Error("Failed to GET file", "url", config.DataParams.IpSource, "name", tmpIpFN, "err", err)
+				isIp = false
+			}
+		}
+	case "hash":
+		// Is community disabled?
+		isCommunity = !config.Params.DisableCommunity 
+		
+		// Is domains updated?
+		derr := downloader.DownloadFile(config.DataParams.DomainSource, dpatht)
+		if derr != nil {
+			slog.Error("Failed to GET file", "url", config.DataParams.DomainSource, "name", tmpDomainFN, "err", derr)
+			isDomain = false
+		} else {
+			res, err := hasher.CompareFilesHash(dpath, dpatht)
+			isDomain = !res
+			if err != nil {
+				slog.Warn("Error while comparing hashes", "hash1", dpath, "hash2", dpatht, "err", err)
+			}
+		}
+
+		// Is ips updated?
+		ierr := downloader.DownloadFile(config.DataParams.IpSource, ipatht)
+		if ierr != nil {
+			slog.Error("Failed to GET file", "url", config.DataParams.IpSource, "name", tmpIpFN, "err", ierr)
+			isIp = false
+		} else {
+			res, err := hasher.CompareFilesHash(ipath, ipatht)
+			isIp = !res
+			if err != nil {
+				slog.Warn("Error while comparing hashes", "hash1", ipath, "hash2", ipatht, "err", err)
+			}
+		}
+	}
+
+	// Return results
+	return isDomain, isIp, isCommunity
+}
+
+func checkCommunityUpdates(localDir string, fileName string) bool {
+	defer slog.Debug("checkCommunityUpdates() ended")
+	if config.Params.DisableCommunity {
+		return false
+	}
 
 	localPath := filepath.Join(localDir, fileName)
 
 	// Check if local file is exsisting
 	localInfo := config.GetPathState(localPath)
-	if !localInfo.Exists {
-		slog.Info("Local file is not found. Downloading required", "file", fileName)
-		return true // If file not exist then it is outdated
-	}
-	localStat, _ := os.Stat(localPath)
-
-	// Send quick HEAD request on server to get headers
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Head(fileURL)
-	if err != nil {
-		slog.Error("Error while trying to get server headers", "url", fileURL, "err", err)
-		return false // Stay with local file if server is unavailable 
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		slog.Warn("Server returned wrong HTTP status!", "status", resp.Status, "url", fileURL)
-		return false
+	var localTime time.Time
+	if localInfo.Exists {
+		localTime = localInfo.ModTime
+	} else {
+		slog.Info("File not found and will be downloaded", "file", communityFN)
+		// If file not found set old date to redownload it
+		localTime = time.Unix(0, 0)
 	}
 
-	// Get Last-Modified tag from headers reply
-	remoteLastModifiedStr := resp.Header.Get("Last-Modified")
-	if remoteLastModifiedStr == "" {
-		slog.Warn("Server does not returned Last-Modified header. Core can download file to check for changes", "file", fileName)
-		return true // If server not return date, safer to download it and check
-	}
+	// List of sources
+	sources := config.DataParams.ComDomainSources
 
-	// Parse server date. (HTTP-date always in RFC1123 format)
-	remoteTime, err := time.Parse(time.RFC1123, remoteLastModifiedStr)
-	if err != nil {
-		slog.Error("Error while parse server date", "date_str", remoteLastModifiedStr, "err", err)
-		return false
-	}
-
-	// Compare last modified dates (round local time to seconds cuz HTTP does not stores ms)
-	localTime := localStat.ModTime().UTC()
-
-	if remoteTime.After(localTime) {
-		slog.Info("Found update on remote server",
-			"file", fileName,
-			"local", localTime.Format(time.RFC3339),
-			"remote", remoteTime.Format(time.RFC3339),
-		)
-		return true // File on server is newer
-	}
-
-	slog.Debug("No updates found for local file", "file", fileName)
-	return false // File on server the same or older
+	// Check
+	return downloader.HasNewerRemoteFiles(localTime, sources)
 }
 
 // Holds execution of function till core param remains false.

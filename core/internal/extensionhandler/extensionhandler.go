@@ -88,6 +88,9 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 				// Formatting plugin output
 				slog.Info("PLUGIN:", "name", ext.Name, "msg", scanner.Text())
 			}
+			if err := scanner.Err(); err != nil {
+				slog.Error("Log scanner error", "err", err)
+			}
 		}()
 
 		// goroutine for processing stdout

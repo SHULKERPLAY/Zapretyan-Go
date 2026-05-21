@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -60,9 +61,9 @@ func ExecPath(configPath string) string {
 	// If Windows add ".exe" to file or ignore if alredy has executable extension
 	if runtime.GOOS == "windows" {
 		ext := strings.ToLower(filepath.Ext(fixedPath))
-		
+
 		isExec := ext == ".exe" || ext == ".bat" || ext == ".cmd" || ext == ".sh"
-		
+
 		// If it not executable file - force add .exe
 		if !isExec {
 			fixedPath += ".exe"
@@ -83,7 +84,7 @@ func parseConfig() {
 	// Output Debug logs in JSON
 	jsonCore, err := json.MarshalIndent(RawCfg.Core, "", "  ")
 	if err != nil {
-		slog.Debug("ERROR converting TOML to JSON:", "err",err)
+		slog.Debug("ERROR converting TOML to JSON:", "err", err)
 	} else {
 		slog.Debug("--- [DEBUG] CORE TOML INTO JSON ---")
 		slog.Debug(string(jsonCore))
@@ -176,19 +177,22 @@ func parseAppConfig() {
 		DataParams.ComDomainSources = []string{}
 		Params.DisableCommunity = true
 	}
-	if !Params.DisableCommunity { DataParams.ComDomainSources = validcomds }
+	if !Params.DisableCommunity {
+		DataParams.ComDomainSources = validcomds
+	}
 
-	DumpStruct("Global Params State", Params) // Output for Debug Level
+	DumpStruct("Global Params State", Params)   // Output for Debug Level
 	DumpStruct("Data Params State", DataParams) // Output for Debug Level
 }
 
 // PathState describe full state of path
 type PathState struct {
-	Exists       bool   // Is exist on disk?
-	IsDir        bool   // Is it Directory?
-	IsFile       bool   // Is it File?
-	IsExecutable bool   // Can we execute it?
-	AbsPath      string // Normalized absolute Path
+	Exists       bool      // Is exist on disk?
+	IsDir        bool      // Is it Directory?
+	IsFile       bool      // Is it File?
+	IsExecutable bool      // Can we execute it?
+	AbsPath      string    // Normalized absolute Path
+	ModTime      time.Time // Time when file was modified (Use with .UTC())
 }
 
 // GetPathState doing complex validation of pathstring
@@ -219,6 +223,9 @@ func GetPathState(rawPath string) PathState {
 	state.Exists = true
 	state.IsDir = info.IsDir()
 	state.IsFile = !info.IsDir()
+
+	// Get last modified date
+	state.ModTime = info.ModTime()
 
 	// Check if executable (Files only)
 	if state.IsFile {
