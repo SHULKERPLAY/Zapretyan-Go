@@ -41,6 +41,10 @@ func main() {
 	wg.Add(1)
 	go extensionhandler.StartSteamExtensions(ctx, &wg)
 
+	// Start difference scanner
+	// wg.Add(1)
+	// go diffscanner.Handler(ctx, &wg)
+
 	// Call blocking function for catching interrupts
 	// Giving to function the cancel remote (Cancel) and task counter (wg)
 	WaitForSystemSignals(cancel, &wg)

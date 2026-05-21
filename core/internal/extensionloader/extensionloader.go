@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 	"zapretyan-go/internal/config"
@@ -52,21 +51,28 @@ func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.Extension
 		return nil, fmt.Errorf("extension disabled in config.toml")
 	}
 
-	cleanName := strings.TrimSpace(name)
-	if cleanName == "" {
+	if strings.TrimSpace(name) == "" {
 		return nil, fmt.Errorf("INVALID PLUGIN NAME!")
 	}
 
-	cleanPath := strings.TrimSpace(rawpath)
-	if cleanPath == "" {
+	if strings.TrimSpace(rawpath) == "" {
 		return nil, fmt.Errorf("Path of plugin %v is not valid!", name)
 	}
 
 	// Build OS specific path
-	path := filepath.Join(config.Params.AppPath, config.ExecPath(rawpath))
+	path := config.GetPathState(config.ExecPath(rawpath))
+	if !path.Exists {
+		return nil, fmt.Errorf("Plugin %v NOT FOUND in %v", name, path.AbsPath)
+	}
+	if path.IsDir {
+		return nil, fmt.Errorf("Path of plugin %v IS A DIRECTORY %v", name, path.AbsPath)
+	}
+	if !path.IsExecutable {
+		return nil, fmt.Errorf("File of plugin %v IS NOT AN EXECUTABLE %v", name, path.AbsPath)
+	}
 
 	// Start process to validate
-	cmd := exec.Command(path)
+	cmd := exec.Command(path.AbsPath)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
@@ -140,7 +146,7 @@ func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.Extension
 	// Compile valid extension state
 	return &extensionhandler.ExtensionState{
 		Name:   name,
-		Path:   path,
+		Path:   path.AbsPath,
 		Mode:   mode,
 		Config: rawCfg, // Write plugin config
 	}, nil

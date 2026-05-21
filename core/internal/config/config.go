@@ -51,14 +51,20 @@ type DataCollection struct {
 	ComDomainSources []string // Downoads all files and merge them in community.txt
 }
 
+// Converts slashes and add .exe suffix on windows if not specified
 func ExecPath(configPath string) string {
 	defer slog.Debug("ExecPath() ended")
 	// Convert slashes to current OS
 	fixedPath := filepath.FromSlash(configPath)
 
-	// If Windows add ".exe" file extension or ignore if alredy has ".exe"
+	// If Windows add ".exe" to file or ignore if alredy has executable extension
 	if runtime.GOOS == "windows" {
-		if !strings.HasSuffix(strings.ToLower(fixedPath), ".exe") {
+		ext := strings.ToLower(filepath.Ext(fixedPath))
+		
+		isExec := ext == ".exe" || ext == ".bat" || ext == ".cmd" || ext == ".sh"
+		
+		// If it not executable file - force add .exe
+		if !isExec {
 			fixedPath += ".exe"
 		}
 	}
@@ -219,7 +225,7 @@ func GetPathState(rawPath string) PathState {
 		if runtime.GOOS == "windows" {
 			// On Windows check file extension
 			ext := strings.ToLower(filepath.Ext(abs))
-			state.IsExecutable = ext == ".exe" || ext == ".bat" || ext == ".cmd"
+			state.IsExecutable = ext == ".exe" || ext == ".bat" || ext == ".cmd" || ext == ".sh"
 		} else {
 			// On Linux/macOS check POSIX rights bits (+x for owner/group/everyone)
 			state.IsExecutable = info.Mode()&0111 != 0
