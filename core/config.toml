@@ -2,7 +2,7 @@
 allow_custom_extensions = false
 report_interval = 1           # In Hours (Up to 720 (30d))
 send_empty_report = true      # Start events even if all fields are (empty: true)
-once_ctx_deadline = 3600      # Kill extension process with "mode: "ONCE"" after this amount of seconds
+once_ctx_deadline = 3300      # Kill extension process with "mode: "ONCE"" after this amount of seconds. Must NOT be more than (report_interval * 3600)
 disable_ip_comparsion = false # Whether to disable scanning banned IP diffs
 disable_community = true      # Whether to disable downloading of []community_domain_sources
     [core.data]

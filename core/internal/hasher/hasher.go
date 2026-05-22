@@ -1,4 +1,4 @@
-package hasher // Helper for sream computing of SHA-256
+package hasher // Helper for stream computing of SHA-256
 import (
 	"crypto/sha256"
 	"encoding/hex"

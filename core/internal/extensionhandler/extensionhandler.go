@@ -27,21 +27,12 @@ type ExtensionState struct {
 	Stderr io.ReadCloser
 }
 
-// STDIN extensions message format
-type EventMessage struct {
+// System commands for plugin (example kill = true)
+type CmdMessage struct {
 	Ver  int                    `json:"ver"`
 	Type string                 `json:"type"`
 	Kill bool                   `json:"kill"`
 	Cfg  map[string]interface{} `json:"cfg"`
-	Diff interface{}            `json:"diff"`
-}
-
-// System commands for plugin (example kill = true)
-type CmdMessage struct {
-	Ver  int    `json:"ver"`
-	Type string `json:"type"`
-	Kill bool   `json:"kill"`
-	Cfg map[string]interface{} `json:"cfg"`
 }
 
 // Registry of validated Extensions
@@ -150,7 +141,7 @@ func StartSteamExtensions(ctx context.Context, globalWg *sync.WaitGroup) {
 		}
 	}
 
-	time.Sleep(5 * time.Second) // Giving extensions some time for start their internal processes
+	time.Sleep(5 * time.Second)   // Giving extensions some time for start their internal processes
 	config.Params.ExtReady = true // Extensions loaded
 
 	if streamCnt < 1 {
@@ -161,4 +152,88 @@ func StartSteamExtensions(ctx context.Context, globalWg *sync.WaitGroup) {
 	// Wait until all plugins stop
 	localWg.Wait()
 	slog.Info("All extensions stopped.")
+}
+
+// RunOnceExtension starts extension with mode ONCE and force kills it if timeout is reached.
+// Channel startedChan sends a signal to executor that process is started successfuly.
+func RunOnceExtension(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionState, startedChan chan<- struct{}) {
+	defer slog.Debug("RunOnceExtension() ended")
+	defer wg.Done() // Report that function is ended
+
+	if ext.Mode != "ONCE" {
+		slog.Error("EXTENSION MODE NOT EQUALS 'ONCE'", "name", ext.Name)
+		close(startedChan)
+		return
+	}
+
+	// Create context that cancel by timer or by global context end
+	localCtx, cancel := context.WithTimeout(ctx, time.Duration(config.Params.ExtOnceCtxTimeout - 10) * time.Second)
+	defer cancel() // Clean resources
+
+	ext.State = exec.Command(ext.Path)
+
+	// in and out streams to extension struct
+	// Catch data from stdout
+	ext.Stdout, _ = ext.State.StdoutPipe()
+	// Catch logs from stderr
+	ext.Stderr, _ = ext.State.StderrPipe()
+	// Init stdin
+	ext.Stdin, _ = ext.State.StdinPipe()
+
+	// Start process
+	if err := ext.State.Start(); err != nil {
+		slog.Error("Failed to start extension", "name", ext.Name, "err", err)
+		close(startedChan)
+		return
+	}
+
+	// Output Log from stderr
+	go func() {
+		scanner := bufio.NewScanner(ext.Stderr)
+		for scanner.Scan() {
+			// Formatting plugin output
+			slog.Info("PLUGIN:", "name", ext.Name, "msg", scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			slog.Error("Log scanner error", "err", err)
+		}
+	}()
+
+	// goroutine for processing stdout
+	// Sent signal to executor when first data is arrived
+	go func() {
+		var void map[string]interface{}
+		if err := json.NewDecoder(ext.Stdout).Decode(&void); err != nil {
+			slog.Warn("Extension output stream ended or sent invalid JSON", "name", ext.Name, "err", err)
+			close(startedChan)
+			return
+		}
+		slog.Debug("Got first data in stdout", "name", ext.Name)
+		startedChan <- struct{}{}
+		io.Copy(io.Discard, ext.Stdout) // Purge all further data from buffer (As it not needed anymore)
+	}()
+
+	// Waiting for process end
+	done := make(chan error, 1)
+	go func() { done <- ext.State.Wait() }()
+
+	select {
+	// Core shutdown (Interrupt closing core context)
+	case <-localCtx.Done():
+		slog.Info("Sent shutdown message to extension...", "name", ext.Name)
+		json.NewEncoder(ext.Stdin).Encode(CmdMessage{Ver: config.Params.JsonVer, Type: "cmd", Kill: true, Cfg: make(map[string]interface{})})
+
+		select {
+		case <-done:
+			slog.Info("Extension successfuly stopped", "name", ext.Name)
+		case <-time.After(5 * time.Second):
+			slog.Warn("Extension process did not stop in time. Executing Process.Kill()!", "name", ext.Name)
+			ext.State.Process.Kill()
+		}
+		return
+
+	// If context is alive but extension process is dead
+	case <-done:
+		slog.Info("Extension successfuly closed", "name", ext.Name)
+	}
 }

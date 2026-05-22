@@ -101,9 +101,15 @@ func parseAppConfig() {
 	// core.*
 	Params.AllowCustom = GetBoolSafe(cfg, "allow_custom_extensions", false)
 	Params.SendEmptyEvent = GetBoolSafe(cfg, "send_empty_report", true)
-	Params.ExtOnceCtxTimeout = GetIntSafe(cfg, "once_ctx_deadline", 3600)
 	Params.DisableIP = GetBoolSafe(cfg, "disable_ip_comparsion", false)
 	Params.DisableCommunity = GetBoolSafe(cfg, "disable_community", true)
+
+	// core.once_ctx_deadline
+	octx := GetIntSafe(cfg, "once_ctx_deadline", 3600)
+	if 300 > octx || octx > 2952000 {
+		octx = 3300
+	}
+	Params.ExtOnceCtxTimeout = octx
 
 	// core.report_interval
 	ri := GetIntSafe(cfg, "report_interval", 1)
@@ -395,4 +401,9 @@ func InitConfig() {
 
 	// Parse App configuration
 	parseAppConfig()
+
+	if Params.ExtOnceCtxTimeout > Params.ReportInterval * 3600 {
+		slog.Error("FATAL: 'once_ctx_deadline' CANNOT BE LONGER THAN 'report_interval'! PLEASE CHECK YOUR config.toml", "once_ctx_deadline_sec", Params.ExtOnceCtxTimeout, "report_interval_sec", Params.ReportInterval * 3600)
+		os.Exit(1)
+	}
 }

@@ -110,8 +110,8 @@ func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.Extension
 		if hs.JsonVer != config.Params.JsonVer {
 			slog.Warn("Plugin JSON version mismatch! Plugin can expirience issues parsing data", "corejsonver", config.Params.JsonVer, "extjsonver", hs.JsonVer)
 		}
+		mode = strings.ToUpper(hs.Mode)
 		if mode != "STREAM" && mode != "ONCE" { return nil, fmt.Errorf("EXTENSION MODE NOT 'ONCE' OR 'STREAM'") }
-		mode = hs.Mode
 		slog.Info("Handshake completed", "name", name, "mode", mode, "version", hs.Version)
 	case err := <-errCh:
 		cmd.Process.Kill()
