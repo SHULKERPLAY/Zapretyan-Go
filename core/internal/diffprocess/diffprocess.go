@@ -2,13 +2,11 @@ package diffprocess
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"log/slog"
 	"os"
 	"sort"
 	"strings"
-	"sync"
 )
 
 // Struct combines data about additions and deletions arrays for IPs and Domains
@@ -136,20 +134,20 @@ func RotateFiles(newTxt, newIpTxt, oldTxt, oldIpTxt, newTmp, newIpTmp string, is
 
 	if isDomain {
 		// Move existing files to old (No need to delete them. os.Rename will overwrite old files)
-		if err := renameIfExists(newTxt, oldTxt); err != nil {
+		if err := RenameIfExists(newTxt, oldTxt); err != nil {
 			slog.Error("Error rotating main file into old", "from", newTxt, "to", oldTxt, "err", err)
 		}
 		// Move temporary files as main ones
-		if err := renameIfExists(newTmp, newTxt); err != nil {
+		if err := RenameIfExists(newTmp, newTxt); err != nil {
 			slog.Error("Error activating main file", "from", newTmp, "to", newTxt, "err", err)
 		}
 	}
 
 	if isIp {
-		if err := renameIfExists(newIpTxt, oldIpTxt); err != nil {
+		if err := RenameIfExists(newIpTxt, oldIpTxt); err != nil {
 			slog.Error("Error rotating main file into old", "from", newTxt, "to", oldTxt, "err", err)
 		}
-		if err := renameIfExists(newIpTmp, newIpTxt); err != nil {
+		if err := RenameIfExists(newIpTmp, newIpTxt); err != nil {
 			slog.Error("Error activating main file", "from", newIpTmp, "to", newIpTxt, "err", err)
 		}
 	}
@@ -158,7 +156,7 @@ func RotateFiles(newTxt, newIpTxt, oldTxt, oldIpTxt, newTmp, newIpTmp string, is
 }
 
 // Helper that renames file ignoring error if source file not exists.
-func renameIfExists(from, to string) error {
+func RenameIfExists(from, to string) error {
 	defer slog.Debug("renameIfExists() ended")
 	err := os.Rename(from, to)
 	if err != nil {
@@ -198,8 +196,4 @@ func CountNonEmptyLines(filePath string) (int, error) {
 	}
 
 	return count, nil
-}
-
-func CommunityDownloadAndMerge(ctx context.Context, wg *sync.WaitGroup) {
-	slog.Info("TODO", "TODO")
 }

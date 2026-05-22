@@ -161,7 +161,7 @@ func IsLocalFileOutdated(fileURL string, localDir string, fileName string) bool 
 }
 
 // Downloads file from URL and store it in specified destPath
-func DownloadFile(url string, destPath string) error {
+func DownloadFile(ctx context.Context, url string, destPath string) error {
 	defer slog.Debug("DownloadFile() ended")
 
 	// Automaticly create folders if they not exist
@@ -172,8 +172,14 @@ func DownloadFile(url string, destPath string) error {
 
 	slog.Info("Started download", "from", url)
 
-	// Send GET request to server
-	resp, err := http.Get(url)
+	// Prepare GET request
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	// Send request to server
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}

@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+	"zapretyan-go/internal/community"
 	"zapretyan-go/internal/config"
-	"zapretyan-go/internal/downloader"
-	"zapretyan-go/internal/hasher"
 	"zapretyan-go/internal/diffprocess"
+	"zapretyan-go/internal/downloader"
 	"zapretyan-go/internal/eventor"
+	"zapretyan-go/internal/hasher"
 )
 
 // Define filenames
@@ -71,7 +72,7 @@ func scan(ctx context.Context) {
 	}
 
 	// Define updates state
-	isDomain, isIp, isCommunity := defineUpdates()
+	isDomain, isIp, isCommunity := defineUpdates(ctx)
 
 	if ctx.Err() != nil {
 		slog.Warn("Scanner stopped by context")
@@ -82,7 +83,7 @@ func scan(ctx context.Context) {
 	var localWg sync.WaitGroup
 	if isCommunity {
 		localWg.Add(1)
-		go diffprocess.CommunityDownloadAndMerge(ctx, &localWg)
+		go community.CommunityDownloadAndMerge(ctx, &localWg, config.DataParams.ComDomainSources, config.DataParams.DataDirectory, cpatht, cpath)
 	}
 
 	// Rotate latest and updated files
@@ -105,7 +106,7 @@ func scan(ctx context.Context) {
 
 // Check which lists has updates. True means need to check difference
 // Also downloading lists if need to calculate diff
-func defineUpdates() (bool, bool, bool) {
+func defineUpdates(ctx context.Context) (bool, bool, bool) {
 	defer slog.Debug("defineUpdates() ended")
 
 	var isDomain 	bool // Is newer domains available?
@@ -120,13 +121,13 @@ func defineUpdates() (bool, bool, bool) {
 		isCommunity = checkCommunityUpdates(config.DataParams.DataDirectory, communityFN)
 
 		if isDomain {
-			if err := downloader.DownloadFile(config.DataParams.DomainSource, dpatht); err != nil {
+			if err := downloader.DownloadFile(ctx, config.DataParams.DomainSource, dpatht); err != nil {
 				slog.Error("Failed to GET file", "url", config.DataParams.DomainSource, "name", tmpDomainFN, "err", err)
 				isDomain = false
 			}
 		}
 		if isIp {
-			if err := downloader.DownloadFile(config.DataParams.IpSource, ipatht); err != nil {
+			if err := downloader.DownloadFile(ctx, config.DataParams.IpSource, ipatht); err != nil {
 				slog.Error("Failed to GET file", "url", config.DataParams.IpSource, "name", tmpIpFN, "err", err)
 				isIp = false
 			}
@@ -136,7 +137,7 @@ func defineUpdates() (bool, bool, bool) {
 		isCommunity = !config.Params.DisableCommunity 
 		
 		// Is domains updated?
-		if err := downloader.DownloadFile(config.DataParams.DomainSource, dpatht); err != nil {
+		if err := downloader.DownloadFile(ctx, config.DataParams.DomainSource, dpatht); err != nil {
 			slog.Error("Failed to GET file", "url", config.DataParams.DomainSource, "name", tmpDomainFN, "err", err)
 			isDomain = false
 		} else {
@@ -148,7 +149,7 @@ func defineUpdates() (bool, bool, bool) {
 		}
 
 		// Is ips updated?
-		if err := downloader.DownloadFile(config.DataParams.IpSource, ipatht); err != nil {
+		if err := downloader.DownloadFile(ctx, config.DataParams.IpSource, ipatht); err != nil {
 			slog.Error("Failed to GET file", "url", config.DataParams.IpSource, "name", tmpIpFN, "err", err)
 			isIp = false
 		} else {
