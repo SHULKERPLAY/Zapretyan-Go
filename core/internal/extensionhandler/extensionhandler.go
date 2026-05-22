@@ -201,17 +201,39 @@ func RunOnceExtension(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionSta
 
 	// goroutine for processing stdout
 	// Sent signal to executor when first data is arrived
-	go func() {
-		var void map[string]interface{}
+	go func(cancel context.CancelFunc) {
+		// Channels to get results of json parse
+		dataCh := make(chan any, 1)
+		errCh := make(chan error, 1)
+
+		var void any
+
 		if err := json.NewDecoder(ext.Stdout).Decode(&void); err != nil {
+			errCh <- err
+		} else {
+			dataCh <- void
+		}
+
+		// Waiting for first data with 10s timeout
+		select {
+		case <-dataCh:
+			slog.Debug("Got first data in stdout", "name", ext.Name)
+			startedChan <- struct{}{}
+		case err := <-errCh:
 			slog.Warn("Extension output stream ended or sent invalid JSON", "name", ext.Name, "err", err)
 			close(startedChan)
+			cancel()
+			return
+
+		case <-time.After(10 * time.Second):
+			slog.Warn("Extension did not responded in time", "name", ext.Name)
+			close(startedChan)
+			cancel()
 			return
 		}
-		slog.Debug("Got first data in stdout", "name", ext.Name)
-		startedChan <- struct{}{}
+
 		io.Copy(io.Discard, ext.Stdout) // Purge all further data from buffer (As it not needed anymore)
-	}()
+	}(cancel)
 
 	// Waiting for process end
 	done := make(chan error, 1)

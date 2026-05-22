@@ -2,6 +2,7 @@ package eventor
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"sync"
 	"zapretyan-go/internal/config"
@@ -35,8 +36,9 @@ type DiffGroup struct {
 }
 
 // Create new event from diff. Requires filepaths to new domain and IPs lists
-func CreateRknEvent(ctx context.Context, rawDiff diffprocess.RawDiff, dpath, ipath string) {
+func CreateRknEvent(ctx context.Context, wg *sync.WaitGroup, rawDiff diffprocess.RawDiff, dpath, ipath string) {
 	defer slog.Debug("CreateRknEvent() ended")
+	defer wg.Done() // Report that function is ended
 
 	// Structure changes data
 	banned := fillRknDiffGroup(rawDiff.Domain.Added, true, dpath)
@@ -93,6 +95,8 @@ func fillRknDiffGroup(diff []string, isTotal bool, path string) DiffGroup {
 
 func sendRknEvent(globalCtx context.Context, data DiffData) {
 	defer slog.Debug("sendRknEvent() ended")
+
+	// WaitGroup for started extensions
 	var wg sync.WaitGroup
 
 	// List extensions and send event
@@ -113,12 +117,16 @@ func sendRknEvent(globalCtx context.Context, data DiffData) {
 			// Wait for start and first data in stdout
 			_, ok := <-startedChan
 			if !ok {
-				slog.Error("SKIP: Extension did not replied in stdout or crashed on start", "name", ext.Name)
+				slog.Error("Extension skipped", "name", ext.Name)
 				continue
 			}
 		}
 
-		// TODO: JSON encode into stdin
+		// Encone event in one JSON line with newline (\n) in the end
+		slog.Info("Sent new event to", "extension", ext.Name)
+		if err := json.NewEncoder(ext.Stdin).Encode(event); err != nil {
+			slog.Error("Error while sending event to stdin", "name", ext.Name, "err", err)
+		}
 	}
 
 	wg.Wait() // Wait for all ONCE extensions to stop

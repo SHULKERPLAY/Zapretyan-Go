@@ -60,8 +60,8 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func scan(ctx context.Context) {
-	// TODO: .tmp files cleaner
-	defer slog.Debug("scan() ended")
+	// Remove temporary files if left from last start
+	downloader.DeleteTmpFiles(config.DataParams.DataDirectory)
 
 	// Hold function for extensions to start
 	hold := holdAction(ctx, config.Params.ExtReady, 6, 10)
@@ -78,7 +78,7 @@ func scan(ctx context.Context) {
 		return
 	}
 
-	// Create localWaitgroup to download and merge community lists
+	// Create localWaitgroup for scan processes
 	var localWg sync.WaitGroup
 	if isCommunity {
 		localWg.Add(1)
@@ -92,11 +92,15 @@ func scan(ctx context.Context) {
 	diffs := diffprocess.CheckDiff(dpath, dpatho, ipath, ipatho, isDomain, isIp)
 
 	// Create Core rkn Event
-	eventor.CreateRknEvent(ctx, diffs, dpath, ipath)
+	localWg.Add(1)
+	go eventor.CreateRknEvent(ctx, &localWg, diffs, dpath, ipath)
 
 	// Wait for community lists task
 	localWg.Wait()
 	slog.Info("Scan completed!")
+
+	// Remove temporary files after process
+	downloader.DeleteTmpFiles(config.DataParams.DataDirectory)
 }
 
 // Check which lists has updates. True means need to check difference

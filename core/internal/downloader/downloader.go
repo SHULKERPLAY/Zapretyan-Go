@@ -195,3 +195,24 @@ func DownloadFile(url string, destPath string) error {
 	slog.Info("File downloaded", "path", destPath)
 	return nil
 }
+
+// DeleteTmpFiles removes all files with .tmp suffix in directory dirPath.
+func DeleteTmpFiles(dirPath string) {
+	// Read only content of current directory
+	files, err := os.ReadDir(dirPath)
+	if err != nil {
+		slog.Error("[.tmp REMOVER] Error reading directory contents", "err", err)
+		return
+	}
+
+	for _, file := range files {
+		// Check if object is file and he has .tmp suffix
+		if !file.IsDir() && filepath.Ext(file.Name()) == ".tmp" {
+			fullPath := filepath.Join(dirPath, file.Name())
+			if err := os.Remove(fullPath); err != nil {
+				slog.Error("Error removing temporary file", "err", err)
+				return
+			}
+		}
+	}
+}
