@@ -107,6 +107,7 @@ func parseAppConfig() {
 	// core.once_ctx_deadline
 	octx := GetIntSafe(cfg, "once_ctx_deadline", 3600)
 	if 300 > octx || octx > 2952000 {
+		slog.Warn("Bad 'core.once_ctx_deadline'. Defaulting.", "min", 300, "spec", octx, "max", 2952000, "default", 3300)
 		octx = 3300
 	}
 	Params.ExtOnceCtxTimeout = octx
@@ -114,6 +115,7 @@ func parseAppConfig() {
 	// core.report_interval
 	ri := GetIntSafe(cfg, "report_interval", 1)
 	if 1 > ri || ri > 720 {
+		slog.Warn("Bad 'core.report_interval'. Defaulting.", "min", 1, "spec", ri, "max", 720, "default", 1)
 		ri = 1
 	}
 	Params.ReportInterval = ri
@@ -348,17 +350,26 @@ func getNestedValue(m map[string]interface{}, key string) (interface{}, bool) {
 	return current, true
 }
 
-// Returns directory where app is installed
+// Returns directory where app is installed even if started through symlink
 func getAppPath() string {
 	defer slog.Debug("getAppPath() ended")
+	
 	// Get executable path
 	exePath, err := os.Executable()
 	if err != nil {
-		return "" // Fallback to workdir on fail
+		slog.Error("FATAL: Cannot get the executable path", "err", err)
+		os.Exit(1)
 	}
 
-	// Get only directory
-	return filepath.Dir(exePath)
+	// If executed from symlink get real absolute path
+	realExePath, err := filepath.EvalSymlinks(exePath)
+	if err != nil {
+		slog.Error("FATAL: Cannot evaluate symlink for executable", "err", err)
+		os.Exit(1)
+	}
+
+	// Return directory
+	return filepath.Dir(realExePath)
 }
 
 // Universal Helper for output debug structure in console
@@ -398,6 +409,16 @@ func InitConfig() {
 
 	// Get Application Directory
 	Params.AppPath = getAppPath()
+
+	// Change dir to this app
+	if err := os.Chdir(Params.AppPath); err != nil {
+		slog.Error("FATAL: Cannot change work directory to", "dir", Params.AppPath)
+		os.Exit(1)
+	}
+
+	// Get workdir for debug
+	wdir, _ := os.Getwd()
+	slog.Debug("", "work_dir", wdir)
 
 	// Parse App configuration
 	parseAppConfig()

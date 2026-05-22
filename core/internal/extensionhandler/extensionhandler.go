@@ -27,12 +27,14 @@ type ExtensionState struct {
 	Stderr io.ReadCloser
 }
 
-// System commands for plugin (example kill = true)
+// Commands to kill or to send plugin configuration.
+// Has twin for events in eventor.go.
 type CmdMessage struct {
-	Ver  int                    `json:"ver"`
-	Type string                 `json:"type"`
-	Kill bool                   `json:"kill"`
-	Cfg  map[string]interface{} `json:"cfg"`
+	Ver  int                    `json:"ver"`           // Version of JSON message payload defined in main.go
+	Type string                 `json:"type"`          // "rkn" event type
+	Kill bool                   `json:"kill"`          // In the "rkn" events must be false
+	Path string                 `json:"path"`          // Absolute path to Data directory
+	Cfg  map[string]interface{} `json:"cfg,omitempty"` // Using map for plugin config flexibility
 }
 
 // Registry of validated Extensions
@@ -93,7 +95,13 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 
 		// Send configuration on extension start
 		slog.Info("Sent config to extension", "name", ext.Name)
-		json.NewEncoder(ext.Stdin).Encode(CmdMessage{Ver: config.Params.JsonVer, Type: "cmd", Kill: false, Cfg: ext.Config})
+		json.NewEncoder(ext.Stdin).Encode(CmdMessage{
+			Ver:  config.Params.JsonVer,
+			Type: "cmd",
+			Kill: false,
+			Path: config.DataParams.DataDirectory,
+			Cfg:  ext.Config,
+		})
 
 		// Waiting for process end
 		done := make(chan error, 1)
@@ -103,7 +111,13 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 		// Core shutdown (Interrupt closing core context)
 		case <-ctx.Done():
 			slog.Info("Sent shutdown message to extension...", "name", ext.Name)
-			json.NewEncoder(ext.Stdin).Encode(CmdMessage{Ver: config.Params.JsonVer, Type: "cmd", Kill: true, Cfg: make(map[string]interface{})})
+			json.NewEncoder(ext.Stdin).Encode(CmdMessage{
+				Ver:  config.Params.JsonVer,
+				Type: "cmd",
+				Kill: true,
+				Path: config.DataParams.DataDirectory,
+				Cfg:  make(map[string]interface{}),
+			})
 
 			select {
 			case <-done:
@@ -167,7 +181,7 @@ func RunOnceExtension(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionSta
 	}
 
 	// Create context that cancel by timer or by global context end
-	localCtx, cancel := context.WithTimeout(ctx, time.Duration(config.Params.ExtOnceCtxTimeout - 10) * time.Second)
+	localCtx, cancel := context.WithTimeout(ctx, time.Duration(config.Params.ExtOnceCtxTimeout-10)*time.Second)
 	defer cancel() // Clean resources
 
 	ext.State = exec.Command(ext.Path)
@@ -218,6 +232,17 @@ func RunOnceExtension(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionSta
 		select {
 		case <-dataCh:
 			slog.Debug("Got first data in stdout", "name", ext.Name)
+
+			// Send configuration on extension start
+			slog.Info("Sent config to extension", "name", ext.Name)
+			json.NewEncoder(ext.Stdin).Encode(CmdMessage{
+				Ver:  config.Params.JsonVer,
+				Type: "cmd",
+				Kill: false,
+				Path: config.DataParams.DataDirectory,
+				Cfg:  ext.Config,
+			})
+
 			startedChan <- struct{}{}
 		case err := <-errCh:
 			slog.Warn("Extension output stream ended or sent invalid JSON", "name", ext.Name, "err", err)
@@ -243,7 +268,13 @@ func RunOnceExtension(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionSta
 	// Core shutdown (Interrupt closing core context)
 	case <-localCtx.Done():
 		slog.Info("Sent shutdown message to extension...", "name", ext.Name)
-		json.NewEncoder(ext.Stdin).Encode(CmdMessage{Ver: config.Params.JsonVer, Type: "cmd", Kill: true, Cfg: make(map[string]interface{})})
+		json.NewEncoder(ext.Stdin).Encode(CmdMessage{
+			Ver:  config.Params.JsonVer,
+			Type: "cmd",
+			Kill: true,
+			Path: config.DataParams.DataDirectory,
+			Cfg:  make(map[string]interface{}),
+		})
 
 		select {
 		case <-done:

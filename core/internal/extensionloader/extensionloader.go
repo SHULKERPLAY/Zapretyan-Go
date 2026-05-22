@@ -122,7 +122,13 @@ func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.Extension
 	}
 
 	// Send shutdown cmd
-	killCmd := extensionhandler.CmdMessage{Ver: 1, Type: "cmd", Kill: true, Cfg: make(map[string]interface{})}
+	killCmd := extensionhandler.CmdMessage{
+		Ver: 1, 
+		Type: "cmd", 
+		Kill: true, 
+		Path: config.DataParams.DataDirectory,
+		Cfg: make(map[string]interface{}),
+	}
 	json.NewEncoder(stdin).Encode(killCmd)
 
 	// Chan for waiting process end

@@ -63,11 +63,12 @@ totalcid = ""   # ChannelID: Daily and total Statistics (dailystat extension wit
 
 [[extension]]
 name = "File Logger"
-desc = "Write every event JSON into ./Data/localfs_logger"
+desc = "Write every event JSON into ./data/localfs_dir"
 source = "https://github.com/SHULKERPLAY/Zapretyan-Go"
 path = "./extensions/localfs"
 enabled = false
-save_last_entries = 100 # Amount of latest files to be saved
+save_last_entries = 100        # Amount of latest files to be saved
+localfs_dir = "localfs_logger" # Directory inside data folder
 
 
 [[extension]]

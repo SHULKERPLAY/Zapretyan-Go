@@ -15,14 +15,14 @@ import (
 )
 
 // Define filenames
-const newDomainFN = "new.txt"
-const oldDomainFN = "old.txt"
-const tmpDomainFN = "new.tmp"
-const newIpFN = "newip.txt"
-const oldIpFN = "oldip.txt"
-const tmpIpFN = "newip.tmp"
-const communityFN = "community.txt"
-const tmpCommunityFN = "community.tmp"
+const newDomainFN string = "new.txt"
+const oldDomainFN string = "old.txt"
+const tmpDomainFN string = "new.tmp"
+const newIpFN string = "newip.txt"
+const oldIpFN string = "oldip.txt"
+const tmpIpFN string = "newip.tmp"
+const communityFN string = "community.txt"
+const tmpCommunityFN string = "community.tmp"
 
 // Define Paths
 var dpath = filepath.Join(config.DataParams.DataDirectory, newDomainFN)     // Full path to domains file

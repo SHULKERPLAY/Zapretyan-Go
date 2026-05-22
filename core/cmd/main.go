@@ -9,10 +9,11 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"zapretyan-go/internal/logger"
 	"zapretyan-go/internal/config"
+	"zapretyan-go/internal/diffscanner"
 	"zapretyan-go/internal/extensionhandler"
 	"zapretyan-go/internal/extensionloader"
+	"zapretyan-go/internal/logger"
 )
 
 func main() {
@@ -26,7 +27,7 @@ func main() {
 	config.Params.Ver = "0.1.0"
 	// Version of JSON message payload
 	config.Params.JsonVer = 1
-	
+
 	// Load configured extensions
 	extensionloader.InitExtensions()
 
@@ -42,8 +43,8 @@ func main() {
 	go extensionhandler.StartSteamExtensions(ctx, &wg)
 
 	// Start difference scanner
-	// wg.Add(1)
-	// go diffscanner.Handler(ctx, &wg)
+	wg.Add(1)
+	go diffscanner.Handler(ctx, &wg)
 
 	// Call blocking function for catching interrupts
 	// Giving to function the cancel remote (Cancel) and task counter (wg)

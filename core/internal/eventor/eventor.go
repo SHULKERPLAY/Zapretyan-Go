@@ -10,11 +10,13 @@ import (
 	"zapretyan-go/internal/extensionhandler"
 )
 
-// EventMessage — STDIN extensions message format
+// EventMessage - STDIN extensions message format.
+// Has twin for commands in extensionhandler.go.
 type EventMessage struct {
 	Ver  int                    `json:"ver"`           // Version of JSON message payload defined in main.go
 	Type string                 `json:"type"`          // "rkn" event type
 	Kill bool                   `json:"kill"`          // In the "rkn" events must be false
+	Path string					`json:"path"`		   // Absolute path to Data directory
 	Cfg  map[string]interface{} `json:"cfg,omitempty"` // Using map for plugin config flexibility
 	Diff DiffData               `json:"diff"`
 }
@@ -105,6 +107,7 @@ func sendRknEvent(globalCtx context.Context, data DiffData) {
 			Ver:  config.Params.JsonVer,
 			Type: "rkn",
 			Kill: false,
+			Path: config.DataParams.DataDirectory,
 			Cfg:  ext.Config,
 			Diff: data,
 		}
