@@ -70,7 +70,6 @@ enabled = false
 save_last_entries = 100        # Amount of latest files to be saved
 localfs_dir = "localfs_logger" # Directory inside data folder
 
-
 [[extension]]
 name = "Daily Statistics"
 desc = "Write daily statistics to today's JSON and historical CSV in Data folder"

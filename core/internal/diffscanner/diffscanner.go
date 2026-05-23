@@ -24,16 +24,6 @@ const tmpIpFN string = "newip.tmp"
 const communityFN string = "community.txt"
 const tmpCommunityFN string = "community.tmp"
 
-// Define Paths
-var dpath = filepath.Join(config.DataParams.DataDirectory, newDomainFN)     // Full path to domains file
-var dpatht = filepath.Join(config.DataParams.DataDirectory, tmpDomainFN)    // Full path to temporary domains file
-var dpatho = filepath.Join(config.DataParams.DataDirectory, oldDomainFN)    // Full path to old domains file
-var ipath = filepath.Join(config.DataParams.DataDirectory, newIpFN)	        // Full path to IPs file
-var ipatht = filepath.Join(config.DataParams.DataDirectory, tmpIpFN)	    // Full path to temporary IPs file
-var ipatho = filepath.Join(config.DataParams.DataDirectory, oldIpFN)	    // Full path to old IPs file
-var cpath = filepath.Join(config.DataParams.DataDirectory, communityFN)     // Full path to community domains file
-var cpatht = filepath.Join(config.DataParams.DataDirectory, tmpCommunityFN) // Full path to temporary community domains file
-
 func Handler(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done() // Report that function is ended
 	defer slog.Debug("Handler() ended")
@@ -43,7 +33,11 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop() // Clean resources on exit
 
-	slog.Info("Started event scanner for every", "hours", interval)
+	slog.Info("Started event scanner", "interval", interval)
+
+	// First start of scan logic
+	slog.Info("Scanning for new changes...")
+	scan(ctx)
 
 	for {
 		select {
@@ -61,18 +55,28 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func scan(ctx context.Context) {
+	// Define Paths
+	var dpath = filepath.Join(config.DataParams.DataDirectory, newDomainFN)     // Full path to domains file
+	var dpatht = filepath.Join(config.DataParams.DataDirectory, tmpDomainFN)    // Full path to temporary domains file
+	var dpatho = filepath.Join(config.DataParams.DataDirectory, oldDomainFN)    // Full path to old domains file
+	var ipath = filepath.Join(config.DataParams.DataDirectory, newIpFN)	        // Full path to IPs file
+	var ipatht = filepath.Join(config.DataParams.DataDirectory, tmpIpFN)	    // Full path to temporary IPs file
+	var ipatho = filepath.Join(config.DataParams.DataDirectory, oldIpFN)	    // Full path to old IPs file
+	var cpath = filepath.Join(config.DataParams.DataDirectory, communityFN)     // Full path to community domains file
+	var cpatht = filepath.Join(config.DataParams.DataDirectory, tmpCommunityFN) // Full path to temporary community domains file
+
 	// Remove temporary files if left from last start
 	downloader.DeleteTmpFiles(config.DataParams.DataDirectory)
 
 	// Hold function for extensions to start
-	hold := holdAction(ctx, config.Params.ExtReady, 6, 10)
+	hold := holdAction(ctx, &config.Params.ExtReady, 6, 10)
 	if !hold {
 		slog.Error("SCAN CANCELLED BY EXTENSION HANDLER OR CONTEXT")
 		return
 	}
 
 	// Define updates state
-	isDomain, isIp, isCommunity := defineUpdates(ctx)
+	isDomain, isIp, isCommunity := defineUpdates(ctx, dpath, dpatht, ipath, ipatht)
 
 	if ctx.Err() != nil {
 		slog.Warn("Scanner stopped by context")
@@ -106,7 +110,7 @@ func scan(ctx context.Context) {
 
 // Check which lists has updates. True means need to check difference
 // Also downloading lists if need to calculate diff
-func defineUpdates(ctx context.Context) (bool, bool, bool) {
+func defineUpdates(ctx context.Context, dpath, dpatht, ipath, ipatht string) (bool, bool, bool) {
 	defer slog.Debug("defineUpdates() ended")
 
 	var isDomain 	bool // Is newer domains available?
@@ -117,7 +121,9 @@ func defineUpdates(ctx context.Context) (bool, bool, bool) {
 	case "http":
 		// Check remote http server
 		isDomain = downloader.IsLocalFileOutdated(config.DataParams.DomainSource, config.DataParams.DataDirectory, newDomainFN)
-		isIp = downloader.IsLocalFileOutdated(config.DataParams.IpSource, config.DataParams.DataDirectory, newIpFN)
+		if !config.Params.DisableIP {
+			isIp = downloader.IsLocalFileOutdated(config.DataParams.IpSource, config.DataParams.DataDirectory, newIpFN)
+		}
 		isCommunity = checkCommunityUpdates(config.DataParams.DataDirectory, communityFN)
 
 		if isDomain {
@@ -148,15 +154,17 @@ func defineUpdates(ctx context.Context) (bool, bool, bool) {
 			}
 		}
 
-		// Is ips updated?
-		if err := downloader.DownloadFile(ctx, config.DataParams.IpSource, ipatht); err != nil {
-			slog.Error("Failed to GET file", "url", config.DataParams.IpSource, "name", tmpIpFN, "err", err)
-			isIp = false
-		} else {
-			res, err := hasher.CompareFilesHash(ipath, ipatht)
-			isIp = !res
-			if err != nil {
-				slog.Warn("Error while comparing hashes", "hash1", ipath, "hash2", ipatht, "err", err)
+		if !config.Params.DisableIP {
+			// Is ips updated?
+			if err := downloader.DownloadFile(ctx, config.DataParams.IpSource, ipatht); err != nil {
+				slog.Error("Failed to GET file", "url", config.DataParams.IpSource, "name", tmpIpFN, "err", err)
+				isIp = false
+			} else {
+				res, err := hasher.CompareFilesHash(ipath, ipatht)
+				isIp = !res
+				if err != nil {
+					slog.Warn("Error while comparing hashes", "hash1", ipath, "hash2", ipatht, "err", err)
+				}
 			}
 		}
 	}
@@ -194,11 +202,12 @@ func checkCommunityUpdates(localDir string, fileName string) bool {
 // Holds execution of function till core param remains false.
 // Requires context, variable that should be true for continue, number of retries, interval of retry in seconds.
 // Returns bool. If false: Out of retries or context closed. If true: Variable true
-func holdAction(ctx context.Context, action bool, retries int, interval int) bool {
+func holdAction(ctx context.Context, action *bool, retries int, interval int) bool {
 	defer slog.Debug("holdAction() ended")
 	retryAfter := time.Duration(interval)
 	for i := 0; i < retries; i++ {
-		if action {
+		condition := *action
+		if condition {
 			return true
 		}
 

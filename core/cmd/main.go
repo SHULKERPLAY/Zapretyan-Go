@@ -14,9 +14,15 @@ import (
 	"zapretyan-go/internal/extensionhandler"
 	"zapretyan-go/internal/extensionloader"
 	"zapretyan-go/internal/logger"
+
+	// DEBUG
+	// "zapretyan-go/internal/pprof"
 )
 
 func main() {
+	// DEBUG. CMD: "go tool pprof -http=:8081 http://localhost:8080/debug/pprof/heap"
+	// go pprof.PprofStart()
+
 	// Start logger and parse flags
 	logger.SetupLogger()
 

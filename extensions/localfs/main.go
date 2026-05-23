@@ -34,7 +34,7 @@ type BaseEvent struct {
 }
 
 // Plugin internal specs
-const pmode = "ONCE"
+const pmode = "ONCE"		  // Can also be "STREAM"
 const pjsonver = 1			  // Expected JSON version
 const pver = "1.0.0@u11i51pi"
 
@@ -153,7 +153,7 @@ func processRknEvent(raw json.RawMessage, saveLimit int) {
 	
 	logMsg("Event written successfuly: %s", fileName)
 
-	// Start file rotation
+	// Start file rotation end exit
 	rotateFiles(saveLimit)
 }
 
@@ -197,5 +197,10 @@ func rotateFiles(limit int) {
 		} else {
 			logMsg("Cleanup: Removed %s", files[i].Name())
 		}
+	}
+
+	// End of task. If mode set to STREAM - continue listening from core
+	if pmode == "ONCE" {
+		os.Exit(0)
 	}
 }
