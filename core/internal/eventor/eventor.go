@@ -48,16 +48,18 @@ func CreateRknEvent(ctx context.Context, wg *sync.WaitGroup, rawDiff diffprocess
 	bannedIp := fillRknDiffGroup(rawDiff.Ip.Added, true, ipath)
 	unbannedIp := fillRknDiffGroup(rawDiff.Ip.Removed, false, ipath)
 
-	// Build DiffData object
-	data := DiffData{
-		Banned:     banned,
-		Unbanned:   unbanned,
-		BannedIP:   bannedIp,
-		UnbannedIP: unbannedIp,
-	}
-
 	// Compile main event message and send it to each loaded extension
-	sendRknEvent(ctx, data)
+	if banned.Empty && unbanned.Empty && bannedIp.Empty && unbannedIp.Empty && config.Params.SendEmptyEvent {
+		// Build DiffData object
+		data := DiffData{
+			Banned:     banned,
+			Unbanned:   unbanned,
+			BannedIP:   bannedIp,
+			UnbannedIP: unbannedIp,
+		}
+
+		sendRknEvent(ctx, data)
+	}
 }
 
 // Build DiffGroup object. If isTotal false - Total (int) stays empty.

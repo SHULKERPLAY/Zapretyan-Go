@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 	"zapretyan-go/internal/community"
@@ -45,6 +46,8 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 			// Scan logic
 			slog.Info("Scanning for new changes...")
 			scan(ctx)
+			// Run GC
+			runtime.GC()
 
 		case <-ctx.Done():
 			// Graceful shutdown
@@ -59,9 +62,9 @@ func scan(ctx context.Context) {
 	var dpath = filepath.Join(config.DataParams.DataDirectory, newDomainFN)     // Full path to domains file
 	var dpatht = filepath.Join(config.DataParams.DataDirectory, tmpDomainFN)    // Full path to temporary domains file
 	var dpatho = filepath.Join(config.DataParams.DataDirectory, oldDomainFN)    // Full path to old domains file
-	var ipath = filepath.Join(config.DataParams.DataDirectory, newIpFN)	        // Full path to IPs file
-	var ipatht = filepath.Join(config.DataParams.DataDirectory, tmpIpFN)	    // Full path to temporary IPs file
-	var ipatho = filepath.Join(config.DataParams.DataDirectory, oldIpFN)	    // Full path to old IPs file
+	var ipath = filepath.Join(config.DataParams.DataDirectory, newIpFN)         // Full path to IPs file
+	var ipatht = filepath.Join(config.DataParams.DataDirectory, tmpIpFN)        // Full path to temporary IPs file
+	var ipatho = filepath.Join(config.DataParams.DataDirectory, oldIpFN)        // Full path to old IPs file
 	var cpath = filepath.Join(config.DataParams.DataDirectory, communityFN)     // Full path to community domains file
 	var cpatht = filepath.Join(config.DataParams.DataDirectory, tmpCommunityFN) // Full path to temporary community domains file
 
@@ -113,7 +116,7 @@ func scan(ctx context.Context) {
 func defineUpdates(ctx context.Context, dpath, dpatht, ipath, ipatht string) (bool, bool, bool) {
 	defer slog.Debug("defineUpdates() ended")
 
-	var isDomain 	bool // Is newer domains available?
+	var isDomain    bool // Is newer domains available?
 	var isIp 		bool // Is newer ips available?
 	var isCommunity bool // Is newer community available?
 
@@ -140,8 +143,8 @@ func defineUpdates(ctx context.Context, dpath, dpatht, ipath, ipatht string) (bo
 		}
 	case "hash":
 		// Is community disabled?
-		isCommunity = !config.Params.DisableCommunity 
-		
+		isCommunity = !config.Params.DisableCommunity
+
 		// Is domains updated?
 		if err := downloader.DownloadFile(ctx, config.DataParams.DomainSource, dpatht); err != nil {
 			slog.Error("Failed to GET file", "url", config.DataParams.DomainSource, "name", tmpDomainFN, "err", err)

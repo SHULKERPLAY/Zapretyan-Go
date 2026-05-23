@@ -2,11 +2,11 @@ package diffprocess
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"log/slog"
 	"os"
 	"sort"
-	"strings"
 )
 
 // Struct combines data about additions and deletions arrays for IPs and Domains
@@ -182,16 +182,19 @@ func CountNonEmptyLines(filePath string) (int, error) {
 	count := 0
 	scanner := bufio.NewScanner(file)
 
+	// Protection from very long lines (Limit by 1MB)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
 	for scanner.Scan() {
-		// strings.TrimSpace removes spaces, tabs and newlines
-		if strings.TrimSpace(scanner.Text()) != "" {
+		// bytes.TrimSpace работает напрямую с байтами исходного буфера без выделения памяти
+		if len(bytes.TrimSpace(scanner.Bytes())) > 0 {
 			count++
 		}
 	}
 
-	// Check for buffer read errors
 	if err := scanner.Err(); err != nil {
-		slog.Error("An error has occured in total length counter. Defaulting to 0")
+		slog.Error("An error has occured in total length counter. Defaulting to 0", "err", err)
 		return 0, err
 	}
 
