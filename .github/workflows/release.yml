@@ -131,7 +131,7 @@ jobs:
                 echo "-> Located structure cmd/ in $EXT_NAME"
                 cd cmd
                 go build -v -trimpath -ldflags="-s -w -buildid=" -o "$ROOT_DIR/$BUILD_DIR/extensions/${EXT_NAME}$EXT" .
-              else
+              elif [ -e "main.go" ]; then
                 echo "-> Simple structure in $EXT_NAME"
                 go build -v -trimpath -ldflags="-s -w -buildid=" -o "$ROOT_DIR/$BUILD_DIR/extensions/${EXT_NAME}$EXT" .
               fi
