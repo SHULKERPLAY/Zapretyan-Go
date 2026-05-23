@@ -83,6 +83,7 @@ jobs:
             fi
           done
         fi
+      continue-on-error: true
 
     - name: Build and Assemble Structure
       run: |
@@ -165,5 +166,4 @@ jobs:
         tag_name: ${{ env.RELEASE_TAG }}
         files: ${{ env.RELEASE_ASSET }}
         make_latest: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
