@@ -46,8 +46,6 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 			// Scan logic
 			slog.Info("Scanning for new changes...")
 			scan(ctx)
-			// Run GC
-			runtime.GC()
 
 		case <-ctx.Done():
 			// Graceful shutdown
@@ -58,6 +56,12 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func scan(ctx context.Context) {
+	// Run GC
+	defer runtime.GC()
+
+	// Remove temporary files after process
+	defer downloader.DeleteTmpFiles(config.DataParams.DataDirectory)
+
 	// Define Paths
 	var dpath = filepath.Join(config.DataParams.DataDirectory, newDomainFN)     // Full path to domains file
 	var dpatht = filepath.Join(config.DataParams.DataDirectory, tmpDomainFN)    // Full path to temporary domains file
@@ -79,7 +83,7 @@ func scan(ctx context.Context) {
 	}
 
 	// Define updates state
-	isDomain, isIp, isCommunity := defineUpdates(ctx, dpath, dpatht, ipath, ipatht)
+	isDomain, isIp, isCommunity := defineUpdates(dpath, ipath, cpath)
 
 	if ctx.Err() != nil {
 		slog.Warn("Scanner stopped by context")
@@ -88,32 +92,75 @@ func scan(ctx context.Context) {
 
 	// Create localWaitgroup for scan processes
 	var localWg sync.WaitGroup
-	if isCommunity {
+
+	// Download and merge domain lists
+	domainch := make(chan bool)
+	if isDomain {
 		localWg.Add(1)
-		go community.CommunityDownloadAndMerge(ctx, &localWg, config.DataParams.ComDomainSources, config.DataParams.DataDirectory, cpatht, cpath)
+		go func(){
+			res := community.ListDownloadAndMerge(ctx, &localWg, config.DataParams.DomainSource, config.DataParams.DataDirectory, dpatht, "domain")
+			domainch <- res
+		}()
+	} else {
+		// If goroutine not started write false into channel to not block reading
+		domainch <- false 
 	}
 
-	// Rotate latest and updated files
-	diffprocess.RotateFiles(dpath, ipath, dpatho, ipatho, dpatht, ipatht, isDomain, isIp)
+	// Download and merge ip lists
+	ipch := make(chan bool)
+	if isIp {
+		localWg.Add(1)
+		go func(){
+			res := community.ListDownloadAndMerge(ctx, &localWg, config.DataParams.IpSource, config.DataParams.DataDirectory, ipatht, "ip")
+			ipch <- res
+		}()
+	} else {
+		ipch <- false 
+	}
+
+	// Download and merge community lists
+	comch := make(chan bool)
+	if isCommunity {
+		localWg.Add(1)
+		go func(){
+			res := community.ListDownloadAndMerge(ctx, &localWg, config.DataParams.ComDomainSources, config.DataParams.DataDirectory, cpatht, "community")
+			comch <- res
+		}()
+	} else {
+		comch <- false 
+	}
+
+	// Wait for list tasks to end
+	isDomain = <-domainch
+	isIp = <-ipch
+	isCommunity = <-comch
+	localWg.Wait()
+
+	if ctx.Err() != nil {
+		slog.Warn("Scanner stopped by context")
+		return
+	}
+
+	// Check hash to check if file rotation needed
+	if config.DataParams.Method == "hash" {
+		isDomain, isIp, isCommunity = hashcheck(dpath, ipath, cpath, dpatht, ipatht, cpatht, isDomain, isIp, isCommunity)
+	}
+
+	// Rotate latest updated files
+	diffprocess.RotateFiles(dpath, ipath, dpatho, ipatho, dpatht, ipatht, cpath, cpatht, isDomain, isIp, isCommunity)
 
 	// Start Diff computing
 	diffs := diffprocess.CheckDiff(dpath, dpatho, ipath, ipatho, isDomain, isIp)
 
 	// Create Core rkn Event
-	localWg.Add(1)
-	go eventor.CreateRknEvent(ctx, &localWg, diffs, dpath, ipath)
+	eventor.CreateRknEvent(ctx, &localWg, diffs, dpath, ipath)
 
-	// Wait for community lists task
-	localWg.Wait()
 	slog.Info("Scan completed!")
-
-	// Remove temporary files after process
-	downloader.DeleteTmpFiles(config.DataParams.DataDirectory)
 }
 
 // Check which lists has updates. True means need to check difference
 // Also downloading lists if need to calculate diff
-func defineUpdates(ctx context.Context, dpath, dpatht, ipath, ipatht string) (bool, bool, bool) {
+func defineUpdates(dpath, ipath, cpath string) (bool, bool, bool) {
 	defer slog.Debug("defineUpdates() ended")
 
 	var isDomain    bool // Is newer domains available?
@@ -122,67 +169,38 @@ func defineUpdates(ctx context.Context, dpath, dpatht, ipath, ipatht string) (bo
 
 	switch config.DataParams.Method {
 	case "http":
-		// Check remote http server
-		isDomain = downloader.IsLocalFileOutdated(config.DataParams.DomainSource, config.DataParams.DataDirectory, newDomainFN)
-		if !config.Params.DisableIP {
-			isIp = downloader.IsLocalFileOutdated(config.DataParams.IpSource, config.DataParams.DataDirectory, newIpFN)
-		}
-		isCommunity = checkCommunityUpdates(config.DataParams.DataDirectory, communityFN)
+		// Check for domain list updates
+		isDomain = checkUpdates(dpath, config.DataParams.DomainSource)
 
-		if isDomain {
-			if err := downloader.DownloadFile(ctx, config.DataParams.DomainSource, dpatht); err != nil {
-				slog.Error("Failed to GET file", "url", config.DataParams.DomainSource, "name", tmpDomainFN, "err", err)
-				isDomain = false
-			}
+		// Check for ip list updates
+		if !config.Params.DisableIP {
+			isIp = checkUpdates(ipath, config.DataParams.IpSource)
 		}
-		if isIp {
-			if err := downloader.DownloadFile(ctx, config.DataParams.IpSource, ipatht); err != nil {
-				slog.Error("Failed to GET file", "url", config.DataParams.IpSource, "name", tmpIpFN, "err", err)
-				isIp = false
-			}
+
+		// Check for community list updates
+		if !config.Params.DisableCommunity {
+			isCommunity = checkUpdates(cpath, config.DataParams.ComDomainSources)
 		}
 	case "hash":
+		// Hashcheck need to download and merge files first.
+		// Define which types we need to download and after that hashcheck will be performed
+		// to decide if files were changed and if we need to rotate files
+
+		// Domains always need to download for hashcheck
+		isDomain = true
+		// Is IP disabled?
+		isIp = !config.Params.DisableIP
 		// Is community disabled?
 		isCommunity = !config.Params.DisableCommunity
-
-		// Is domains updated?
-		if err := downloader.DownloadFile(ctx, config.DataParams.DomainSource, dpatht); err != nil {
-			slog.Error("Failed to GET file", "url", config.DataParams.DomainSource, "name", tmpDomainFN, "err", err)
-			isDomain = false
-		} else {
-			res, err := hasher.CompareFilesHash(dpath, dpatht)
-			isDomain = !res
-			if err != nil {
-				slog.Warn("Error while comparing hashes", "hash1", dpath, "hash2", dpatht, "err", err)
-			}
-		}
-
-		if !config.Params.DisableIP {
-			// Is ips updated?
-			if err := downloader.DownloadFile(ctx, config.DataParams.IpSource, ipatht); err != nil {
-				slog.Error("Failed to GET file", "url", config.DataParams.IpSource, "name", tmpIpFN, "err", err)
-				isIp = false
-			} else {
-				res, err := hasher.CompareFilesHash(ipath, ipatht)
-				isIp = !res
-				if err != nil {
-					slog.Warn("Error while comparing hashes", "hash1", ipath, "hash2", ipatht, "err", err)
-				}
-			}
-		}
 	}
 
 	// Return results
 	return isDomain, isIp, isCommunity
 }
 
-func checkCommunityUpdates(localDir string, fileName string) bool {
-	defer slog.Debug("checkCommunityUpdates() ended")
-	if config.Params.DisableCommunity {
-		return false
-	}
-
-	localPath := filepath.Join(localDir, fileName)
+// Returns true if at least one file from []sources is newer than file in localPath 
+func checkUpdates(localPath string, sources []string) bool {
+	defer slog.Debug("checkUpdates() ended")
 
 	// Check if local file is exsisting
 	localInfo := config.GetPathState(localPath)
@@ -191,15 +209,57 @@ func checkCommunityUpdates(localDir string, fileName string) bool {
 		localTime = localInfo.ModTime
 	} else {
 		slog.Info("File not found and will be downloaded", "file", communityFN)
-		// If file not found set old date to redownload it
-		localTime = time.Unix(0, 0)
+		// If file not found we need to download it
+		return true
 	}
 
-	// List of sources
-	sources := config.DataParams.ComDomainSources
-
-	// Check
+	// Check remote http urls for updates
 	return downloader.HasNewerRemoteFiles(localTime, sources)
+}
+
+// Check file hashes and return true (domain, ip, community) if enabled and temporary file is newer than current one.
+// Specify filepaths to every needed file as string and toggle hashchecks as boolean.
+// Use to check is file rotation needed for list types.
+func hashcheck(newTxt, newIpTxt, communityTxt, newTmp, newIpTmp, communityTmp string, isDomain, isIp, isCommunity bool) (bool, bool, bool) {
+	defer slog.Debug("hashcheck() ended")
+
+	// Predefine states to return
+	var domainState bool
+	var ipState bool
+	var communityState bool
+
+	// If not false then mode enabled, download and merge of files was successful
+	// If domain list enabled
+	if isDomain {
+		// Compare hashes
+		res, err := hasher.CompareFilesHash(newTxt, newTmp)
+		// Set false if hashes identical or error (Means that rotation will be ignored)
+		if err != nil {
+			slog.Warn("Error while comparing hashes", "hash1", newTxt, "hash2", newTmp, "err", err)
+		} else {
+			domainState = !res
+		}
+	}
+	// If ip list enabled
+	if isIp {
+		res, err := hasher.CompareFilesHash(newIpTxt, newIpTmp)
+		if err != nil {
+			slog.Warn("Error while comparing hashes", "hash1", newIpTxt, "hash2", newIpTmp, "err", err)
+		} else {
+			ipState = !res
+		}
+	}
+	// If community list enabled
+	if isCommunity {
+		res, err := hasher.CompareFilesHash(communityTxt, communityTmp)
+		if err != nil {
+			slog.Warn("Error while comparing hashes", "hash1", communityTxt, "hash2", communityTmp, "err", err)
+		} else {
+			communityState = !res
+		}
+	}
+
+	return domainState, ipState, communityState
 }
 
 // Holds execution of function till core param remains false.

@@ -129,9 +129,11 @@ func fileDiff(oldFile, newFile string) DiffResult {
 // 3. newip.txt -> oldip.txt (oldip.txt overwritten)
 // 4. newip.tmp -> newip.txt
 // isDomain, isIp toggles rotation for types of files
-func RotateFiles(newTxt, newIpTxt, oldTxt, oldIpTxt, newTmp, newIpTmp string, isDomain, isIp bool) {
+func RotateFiles(newTxt, newIpTxt, communityTxt, newTmp, newIpTmp, communityTmp, oldTxt, oldIpTxt string, isDomain, isIp, isCommunity bool) {
 	defer slog.Debug("RotateFiles() ended")
 
+	slog.Info("Preparing file rotation", "domains", isDomain, "ips", isIp, "community", isCommunity)
+	// If domains are successfuly downloaded and has changes
 	if isDomain {
 		// Move existing files to old (No need to delete them. os.Rename will overwrite old files)
 		if err := RenameIfExists(newTxt, oldTxt); err != nil {
@@ -142,13 +144,19 @@ func RotateFiles(newTxt, newIpTxt, oldTxt, oldIpTxt, newTmp, newIpTmp string, is
 			slog.Error("Error activating main file", "from", newTmp, "to", newTxt, "err", err)
 		}
 	}
-
+	// If ips are successfuly downloaded and has changes
 	if isIp {
 		if err := RenameIfExists(newIpTxt, oldIpTxt); err != nil {
-			slog.Error("Error rotating main file into old", "from", newTxt, "to", oldTxt, "err", err)
+			slog.Error("Error rotating main file into old", "from", newTxt, "to", oldIpTxt, "err", err)
 		}
 		if err := RenameIfExists(newIpTmp, newIpTxt); err != nil {
 			slog.Error("Error activating main file", "from", newIpTmp, "to", newIpTxt, "err", err)
+		}
+	}
+
+	if isCommunity {
+		if err := RenameIfExists(communityTmp, communityTxt); err != nil {
+			slog.Error("Error activating main file", "from", communityTmp, "to", communityTxt, "err", err)
 		}
 	}
 

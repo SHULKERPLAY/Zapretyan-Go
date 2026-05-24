@@ -8,12 +8,17 @@ disable_community = true      # Whether to disable downloading of []community_do
     [core.data]
     data_dir = "./data" # Directory with necessary service files
     method = "http"     # "http" checks for Last-Modified tag to check difference while "hash" downloading file every time and comparing hashes
-    domain_source = "https://antifilter.download/list/domains.lst" # Writen to new.txt
-    ip_source = "https://antifilter.download/list/ip.lst"          # Writen to newip.txt
+    domain_source = [ 
+        "https://antifilter.download/list/domains.lst"
+    ] # Deduplicate and Merge into new.txt
+    ip_source = [
+        "https://antifilter.download/list/ip.lst", 
+        "https://antifilter.download/list/ipsum.lst" 
+    ] # Unpack all addresses with prefixes, deduplicate and merge into newip.txt
     community_domain_sources = [
         'https://community.antifilter.download/list/domains.lst',
         'https://raw.githubusercontent.com/1andrevich/Re-filter-lists/main/community.lst'
-    ] # Merge into one "community.txt" file
+    ] # Deduplicate and Merge into community.txt
 
 [[extension]]
 name = "Discord Sender"

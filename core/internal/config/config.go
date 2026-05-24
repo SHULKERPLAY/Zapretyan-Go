@@ -47,8 +47,8 @@ var DataParams *DataCollection
 type DataCollection struct {
 	DataDirectory    string   // Directory to store all data for service work
 	Method           string   // "http" checks for Last-Modified tag to check difference while "hash" downloading file every time and comparing hashes
-	DomainSource     string   // Source of Domain list
-	IpSource         string   // Source of IP list
+	DomainSource     []string // Source of Domain list
+	IpSource         []string // Source of IP list
 	ComDomainSources []string // Downoads all files and merge them in community.txt
 }
 
@@ -147,22 +147,53 @@ func parseAppConfig() {
 	DataParams.Method = m
 
 	// core.data.domain_source
-	ds := GetStringSafe(cfg, "data.domain_source", "https://antifilter.download/list/domains.lst")
-	if !IsValidURL(ds) {
-		slog.Warn("BAD URL IN 'core.data.domain_source'. Fallback to default")
-		ds = "https://antifilter.download/list/domains.lst"
+	var defaultds = []string{"https://antifilter.download/list/domains.lst"}
+	var validds []string
+	domsource := GetSliceStringSafe(cfg, "data.domain_source", defaultds)
+	for _, ds := range domsource {
+		if !IsValidURL(ds) {
+			slog.Warn("Invalid URL in 'core.data.domain_source'. Key Dropped", "key", ds)
+			continue
+		}
+		validds = append(validds, ds)
+		slog.Info("", "domain_source", ds)
 	}
-	DataParams.DomainSource = ds
-	slog.Info("", "domain_source", ds)
+	slog.Info("Domain sources check complete", "valid_count", len(validds))
+
+	// Check length
+	if len(validds) < 1 {
+		slog.Warn("At least one URL must be valid. Defaulting Domain sources!", "source", defaultds)
+		DataParams.DomainSource = defaultds
+	} else {
+		DataParams.DomainSource = validds
+	}
 
 	// core.data.ip_source
-	is := GetStringSafe(cfg, "data.ip_source", "https://antifilter.download/list/ip.lst")
-	if !IsValidURL(is) {
-		slog.Warn("BAD URL IN 'core.data.ip_source'. Fallback to default")
-		is = "https://antifilter.download/list/ip.lst"
+	var defaultips = []string{"https://antifilter.download/list/ip.lst", "https://antifilter.download/list/ipsum.lst"}
+	if Params.DisableIP {
+		// Set default if disabled
+		DataParams.IpSource = defaultips
+	} else {
+		var validips []string
+		ipsource := GetSliceStringSafe(cfg, "data.ip_source", defaultips)
+		for _, ips := range ipsource {
+			if !IsValidURL(ips) {
+				slog.Warn("Invalid URL in 'core.data.ip_source'. Key Dropped", "key", ips)
+				continue
+			}
+			validips = append(validips, ips)
+			slog.Info("", "ip_source", ips)
+		}
+		slog.Info("IP sources check complete", "valid_count", len(validips))
+
+		// Check length
+		if len(validips) < 1 {
+			slog.Warn("At least one URL must be valid. Defaulting IP sources!", "source", defaultips)
+			DataParams.IpSource = defaultips
+		} else {
+			DataParams.IpSource = validips
+		}
 	}
-	DataParams.IpSource = is
-	slog.Info("", "ip_source", is)
 
 	// core.data.community_domain_sources
 	var validcomds []string

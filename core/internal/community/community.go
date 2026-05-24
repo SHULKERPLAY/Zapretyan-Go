@@ -2,94 +2,135 @@ package community
 
 import (
 	"bufio"
+	"bytes"
 	"context"
-	"fmt"
 	"log/slog"
+	"net/netip"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
-	"time"
-	"zapretyan-go/internal/config"
 	"zapretyan-go/internal/diffprocess"
 	"zapretyan-go/internal/downloader"
 )
 
-// CommunityDownloadAndMerge downloading all files from array and merge them with deduplication, sorts and renaming.
-func CommunityDownloadAndMerge(ctx context.Context, wg *sync.WaitGroup, urls []string, targetDir, finalTmpPath, finalTxtPath string) {
-	defer slog.Debug("CommunityDownloadAndMerge() ended")
+// ListDownloadAndMerge downloading all files from array and merge them with deduplication, sorts and renaming.
+// Returns bool where true on success and false if operation was failed.
+// Wait as lists "domain", "ip" or "community"
+func ListDownloadAndMerge(ctx context.Context, wg *sync.WaitGroup, urls []string, targetDir, finalTmpPath string, lists string) bool {
+	defer slog.Debug("ListDownloadAndMerge() ended")
 	defer wg.Done() // Report that function is ended
 
-	// Create context that cancel by timer or by global context end
-	localCtx, cancel := context.WithTimeout(ctx, time.Duration(config.Params.ExtOnceCtxTimeout-10)*time.Second)
-	defer cancel() // Clean resources
-
-	var localWg sync.WaitGroup
-	// Channel for collecting errors data from goroutines
-	errChan := make(chan error, len(urls))
-
-	// List of paths to temporary downloaded files
-	tmpFiles := make([]string, len(urls))
-
-	// Parallel download
-	for i, url := range urls {
-		localWg.Add(1)
-		tmpFiles[i] = filepath.Join(targetDir, fmt.Sprintf("community%d.tmp", i))
-
-		go func(index int, downloadURL string, destPath string) {
-			defer localWg.Done()
-
-			// Pass conext to download function
-			if err := downloader.DownloadFile(localCtx, downloadURL, destPath); err != nil {
-				errChan <- fmt.Errorf("Error downloading %s: %w", downloadURL, err)
-			}
-		}(i, url, tmpFiles[i])
+	if lists != "domain" && lists != "ip" && lists != "community" {
+		slog.Error("Invalid merge type", "type", lists)
+		return false
 	}
 
-	// Wait for goroutines to end
-	localWg.Wait()
-	close(errChan)
-
-	// Check if errors while downloading
-	if len(errChan) > 0 {
-		slog.Error("Errors while downloading community lists", "err", errChan)
-		return
+	tmpFiles, err := downloader.DownloadArray(ctx, urls, targetDir, finalTmpPath)
+	if err != nil {
+		slog.Error("Error while downloading. Process canceled", "list", lists, "err", err)
+		return false
 	}
 
-	// Merge, deduplicate and sort lines
-	linesMap := make(map[string]struct{})
+	// Count possible lines count to allocate memory for map.
+	// It needed for RAM optimization
+	var length int
+	for _, file := range tmpFiles {
+		lin, _ := diffprocess.CountNonEmptyLines(file)
+		length = length + lin
+	}
+
+	// Merge all lines into map.
+	// They will be deduplicated as map can store only unique keys
+	linesMap := make(map[string]struct{}, length)
 
 	for _, file := range tmpFiles {
-		if err := readLinesToMap(file, linesMap); err != nil {
-			slog.Error("Error reading community tmp file", "file", file, "err", err)
-			return
+		// Read all lines to map. Lines deduplicated automaticly
+		// because structure map[string]struct{} can store only unique keys
+		if err := ReadLinesToMap(file, linesMap); err != nil {
+			slog.Error("Error reading tmp file", "file", file, "err", err)
+			return false
 		}
+	}  
+
+	if lists == "ip" {
+		UnpackCIDRInMap(linesMap)
 	}
 
-	// Transfer unique lines into slice to sort
+	// Create map to transfer linemap to array of strings.
+	// The reason is that we cannot sort the map.
+	// So map is transfered to sort and write sorted data to file.
 	uniqueLines := make([]string, 0, len(linesMap))
 	for line := range linesMap {
 		uniqueLines = append(uniqueLines, line)
 	}
 	sort.Strings(uniqueLines)
 
-	// Write to final files
-	// Write community.tmp
-	if err := writeLinesToFile(finalTmpPath, uniqueLines); err != nil {
-		slog.Error("Error community writing", "file", finalTmpPath, "err", err)
-		return
+	// Write all data to list.tmp
+	if err := WriteLinesToFile(finalTmpPath, uniqueLines); err != nil {
+		slog.Error("Error writing lists", "file", finalTmpPath, "err", err)
+		return false
 	}
 
-	// Quick rename community.tmp into community.txt (Old community.txt will be owerwriten)
-	if err := diffprocess.RenameIfExists(finalTmpPath, finalTxtPath); err != nil {
-		slog.Error("Error renaming community tmp file", "err", err)
-		return
+	return true
+}
+
+// UnpackCIDRInMap finds all CIDR-prefixes in map, unpacking them as single IP and remove prefixes.
+func UnpackCIDRInMap(linesMap map[string]struct{}) {
+	defer slog.Debug("UnpackCIDRInMap() ended")
+	// Create array to store prefixes which need to be removed.
+	// Allocate memory one time to avoid reallocations.
+	var keysToDelete []string
+
+	// Temporary map for new IPs to not modify linesMap in iterations
+	detectedIPs := make(map[string]struct{})
+
+	for key := range linesMap {
+		// Quick check: if line not exist or do not have mask then skip it
+		if !strings.ContainsRune(key, '/') {
+			continue
+		}
+
+		// Parse CIDR with netip (zero-allocation parser)
+		prefix, err := netip.ParsePrefix(key)
+		if err != nil {
+			// If line broken or not parse as CIDR skip it
+			continue
+		}
+
+		// Store prefix to delete it after
+		keysToDelete = append(keysToDelete, key)
+
+		// Get first IP and mask address
+		addr := prefix.Addr()
+
+		// Iterating by all IP addresses inside subnet
+		// Prefix /32 (IPv4) or /128 (IPv6) returns only one address
+		for prefix.Contains(addr) {
+			detectedIPs[addr.String()] = struct{}{}
+			addr = addr.Next()
+
+			// Protect from infinite cycle
+			if addr == (netip.Addr{}) {
+				break
+			}
+		}
 	}
+
+	// Remove old keys with prefixes
+	for _, key := range keysToDelete {
+		delete(linesMap, key)
+	}
+
+	// Move unpacked IPs to main map
+	for ip := range detectedIPs {
+		linesMap[ip] = struct{}{}
+	} // No need to return objects. Map data edited in Go directly without the pointers
 }
 
 // Reading file lines to map for deduplication
-func readLinesToMap(path string, linesMap map[string]struct{}) error {
+func ReadLinesToMap(path string, linesMap map[string]struct{}) error {
+	defer slog.Debug("readLinesToMap() ended")
 	file, err := os.Open(path)
 	if err != nil {
 		return err
@@ -98,16 +139,22 @@ func readLinesToMap(path string, linesMap map[string]struct{}) error {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" {
-			linesMap[line] = struct{}{}
+		// Get bytes without allocating memory on heap
+		bytesLine := bytes.TrimSpace(scanner.Bytes())
+		if len(bytesLine) == 0 {
+			continue
 		}
+
+		// Allocate memory only when writing to map.
+		linesMap[string(bytesLine)] = struct{}{}
 	}
 	return scanner.Err()
 }
 
 // Write slice of lines to file
-func writeLinesToFile(path string, lines []string) error {
+func WriteLinesToFile(path string, lines []string) error {
+	defer slog.Debug("writeLinesToFile() ended")
+
 	file, err := os.Create(path)
 	if err != nil {
 		return err
@@ -116,9 +163,16 @@ func writeLinesToFile(path string, lines []string) error {
 
 	writer := bufio.NewWriter(file)
 	for _, line := range lines {
-		if _, err := writer.WriteString(line + "\n"); err != nil {
+		// Write base string
+		if _, err := writer.WriteString(line); err != nil {
+			return err
+		}
+		// Write newline symbol as one byte
+		if err := writer.WriteByte('\n'); err != nil {
 			return err
 		}
 	}
+
+	// Flushing buffer to file
 	return writer.Flush()
 }

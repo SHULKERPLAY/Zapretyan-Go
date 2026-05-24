@@ -2,11 +2,13 @@ package downloader
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 	"zapretyan-go/internal/config"
@@ -160,7 +162,7 @@ func IsLocalFileOutdated(fileURL string, localDir string, fileName string) bool 
 	return false // File on server the same or older
 }
 
-// Downloads file from URL and store it in specified destPath
+// Downloads file from URL and store it in specified destPath with retries
 func DownloadFile(ctx context.Context, url string, destPath string) error {
 	defer slog.Debug("DownloadFile() ended")
 
@@ -170,9 +172,49 @@ func DownloadFile(ctx context.Context, url string, destPath string) error {
 		return err
 	}
 
-	slog.Info("Started download", "from", url)
+	const maxAttempts = 3 		  // Max attempts
+	retryDelay := 5 * time.Second // Wait before retry
+	var lastErr error
 
-	// Prepare GET request
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		// Check context on every retry
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		if attempt > 1 {
+			slog.Warn("Retrying to download file...", "attempt", attempt)
+			
+			// Wait before next retry with context support
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(retryDelay):
+				// Raise wait time for next retry
+				retryDelay *= 2 
+			}
+		}
+
+		slog.Info("Started download", "from", url, "attempt", attempt)
+
+		// Call attempt function
+		lastErr = doDownloadAttempt(ctx, url, destPath)
+		if lastErr == nil {
+			slog.Info("File downloaded successfully", "path", destPath)
+			return nil
+		}
+
+		slog.Error("Error trying to download", "attempt", attempt, "err", lastErr)
+		
+		// Clear corrupted file to restart
+		_ = os.Remove(destPath)
+	}
+
+	return fmt.Errorf("Failed to download file from '%v' after %d attempts: %w", url, maxAttempts, lastErr)
+}
+
+// Helper for download attempt
+func doDownloadAttempt(ctx context.Context, url string, destPath string) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return err
@@ -184,6 +226,11 @@ func DownloadFile(ctx context.Context, url string, destPath string) error {
 		return err
 	}
 	defer resp.Body.Close()
+
+	// Check HTTP Status. If error 400 (except 429) do not retry
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("wrong reply from server: %s", resp.Status)
+	}
 
 	// Create file on disk
 	out, err := os.Create(destPath)
@@ -198,8 +245,54 @@ func DownloadFile(ctx context.Context, url string, destPath string) error {
 		return err
 	}
 
-	slog.Info("File downloaded", "path", destPath)
 	return nil
+}
+
+// Parallel downloading from array of urls with context support
+// Downloads temporary files as filename0.ext, filename1.ext taken from your filename and save in targetDir
+// Return array of paths to downloaded files
+func DownloadArray(ctx context.Context, urls []string, targetDir, filename string) ([]string, error) {
+	// Create context that cancel by timer or by global context end
+	localCtx, cancel := context.WithTimeout(ctx, time.Duration(config.Params.ExtOnceCtxTimeout-10)*time.Second)
+	defer cancel() // Clean resources
+
+	// Separate name on two parts (filename.ext)
+	fname := filepath.Base(filename)				// Get filename if specified PATH
+	fileext := filepath.Ext(fname)                  // ".ext"
+	fnameonly := strings.TrimSuffix(fname, fileext) // "filename"
+
+	var localWg sync.WaitGroup
+	// Channel for collecting errors data from goroutines
+	errChan := make(chan error, len(urls))
+
+	// List of paths to temporary downloaded files
+	tmpFiles := make([]string, len(urls))
+
+	// Parallel download
+	for i, url := range urls {
+		localWg.Add(1)
+		// Save as filename0.ext
+		tmpFiles[i] = filepath.Join(targetDir, fmt.Sprintf("%v%d%v", fnameonly, i, fileext))
+
+		go func(index int, downloadURL string, destPath string) {
+			defer localWg.Done()
+
+			// Pass conext to download function
+			if err := DownloadFile(localCtx, downloadURL, destPath); err != nil {
+				errChan <- fmt.Errorf("Error downloading %s: %w", downloadURL, err)
+			}
+		}(i, url, tmpFiles[i])
+	}
+
+	// Wait for goroutines to end
+	localWg.Wait()
+	close(errChan)
+
+	// Check if errors while downloading
+	if len(errChan) > 0 {
+		return nil, fmt.Errorf("%v", errChan)
+	}
+	return tmpFiles, nil
 }
 
 // DeleteTmpFiles removes all files with .tmp suffix in directory dirPath.
