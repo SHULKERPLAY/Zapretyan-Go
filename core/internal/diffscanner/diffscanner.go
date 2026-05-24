@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"sync"
 	"time"
-	"zapretyan-go/internal/community"
+	"zapretyan-go/internal/listwriter"
 	"zapretyan-go/internal/config"
 	"zapretyan-go/internal/diffprocess"
 	"zapretyan-go/internal/downloader"
@@ -98,7 +98,7 @@ func scan(ctx context.Context) {
 	if isDomain {
 		localWg.Add(1)
 		go func(){
-			res := community.ListDownloadAndMerge(ctx, &localWg, config.DataParams.DomainSource, config.DataParams.DataDirectory, dpatht, "domain")
+			res := listwriter.ListDownloadAndMerge(ctx, &localWg, config.DataParams.DomainSource, config.DataParams.DataDirectory, dpatht, "domain")
 			domainch <- res
 		}()
 	} else {
@@ -111,7 +111,7 @@ func scan(ctx context.Context) {
 	if isIp {
 		localWg.Add(1)
 		go func(){
-			res := community.ListDownloadAndMerge(ctx, &localWg, config.DataParams.IpSource, config.DataParams.DataDirectory, ipatht, "ip")
+			res := listwriter.ListDownloadAndMerge(ctx, &localWg, config.DataParams.IpSource, config.DataParams.DataDirectory, ipatht, "ip")
 			ipch <- res
 		}()
 	} else {
@@ -123,7 +123,7 @@ func scan(ctx context.Context) {
 	if isCommunity {
 		localWg.Add(1)
 		go func(){
-			res := community.ListDownloadAndMerge(ctx, &localWg, config.DataParams.ComDomainSources, config.DataParams.DataDirectory, cpatht, "community")
+			res := listwriter.ListDownloadAndMerge(ctx, &localWg, config.DataParams.ComDomainSources, config.DataParams.DataDirectory, cpatht, "community")
 			comch <- res
 		}()
 	} else {
