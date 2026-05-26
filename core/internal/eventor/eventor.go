@@ -1,10 +1,15 @@
 package eventor
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"sync"
+	"time"
 	"zapretyan-go/internal/config"
 	"zapretyan-go/internal/diffprocess"
 	"zapretyan-go/internal/extensionhandler"
@@ -16,7 +21,7 @@ type EventMessage struct {
 	Ver  int                    `json:"ver"`           // Version of JSON message payload defined in main.go
 	Type string                 `json:"type"`          // "rkn" event type
 	Kill bool                   `json:"kill"`          // In the "rkn" events must be false
-	Path string					`json:"path"`		   // Absolute path to Data directory
+	Path string                 `json:"path"`          // Absolute path to Data directory
 	Cfg  map[string]interface{} `json:"cfg,omitempty"` // Using map for plugin config flexibility
 	Diff DiffData               `json:"diff"`
 }
@@ -38,9 +43,8 @@ type DiffGroup struct {
 }
 
 // Create new event from diff. Requires filepaths to new domain and IPs lists
-func CreateRknEvent(ctx context.Context, wg *sync.WaitGroup, rawDiff diffprocess.RawDiff, dpath, ipath string) {
+func CreateRknEvent(ctx context.Context, rawDiff diffprocess.RawDiff, dpath, ipath string) {
 	defer slog.Debug("CreateRknEvent() ended")
-	defer wg.Done() // Report that function is ended
 
 	// Structure changes data
 	banned := fillRknDiffGroup(rawDiff.Domain.Added, true, dpath)
@@ -48,8 +52,15 @@ func CreateRknEvent(ctx context.Context, wg *sync.WaitGroup, rawDiff diffprocess
 	bannedIp := fillRknDiffGroup(rawDiff.Ip.Added, true, ipath)
 	unbannedIp := fillRknDiffGroup(rawDiff.Ip.Removed, false, ipath)
 
+	// Check if all lists is empty
+	allempty := banned.Empty && unbanned.Empty && bannedIp.Empty && unbannedIp.Empty
+
 	// Compile main event message and send it to each loaded extension
-	if banned.Empty && unbanned.Empty && bannedIp.Empty && unbannedIp.Empty && config.Params.SendEmptyEvent {
+	if allempty && !config.Params.SendEmptyEvent {
+		// Return if all diffs empty and we not allowed to send empty diffs
+		slog.Info("Diffs empty. Skip event creation")
+		return
+	} else {
 		// Build DiffData object
 		data := DiffData{
 			Banned:     banned,
@@ -99,9 +110,13 @@ func fillRknDiffGroup(diff []string, isTotal bool, path string) DiffGroup {
 
 func sendRknEvent(globalCtx context.Context, data DiffData) {
 	defer slog.Debug("sendRknEvent() ended")
+	slog.Info("Sending event to extensions")
 
 	// WaitGroup for started extensions
 	var wg sync.WaitGroup
+
+	// For debug write to not repeat it
+	var eventwritten bool
 
 	// List extensions and send event
 	for _, ext := range extensionhandler.ValidExtensions {
@@ -132,7 +147,53 @@ func sendRknEvent(globalCtx context.Context, data DiffData) {
 		if err := json.NewEncoder(ext.Stdin).Encode(event); err != nil {
 			slog.Error("Error while sending event to stdin", "name", ext.Name, "err", err)
 		}
+
+		// Write event if flag is set for debugging purposes
+		if config.Params.DumpEvent && !eventwritten {
+			go saveEventToFile(event)
+			eventwritten = true
+		}
 	}
 
 	wg.Wait() // Wait for all ONCE extensions to stop
+}
+
+// saveEventToFile saves event into json file with timestamp
+func saveEventToFile(event any) {
+	defer slog.Debug("saveEventToFile() ended")
+	// Format filename based on current date-time
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	filename := fmt.Sprintf("event_%s.json", timestamp)
+
+	// Check if directory exists
+	if err := os.MkdirAll(filepath.Join(config.DataParams.DataDirectory, "debug"), 0755); err != nil {
+		return
+	}
+
+	// Path to save
+	filePath := filepath.Join(config.DataParams.DataDirectory, "debug", filename)
+
+	// Open file to write
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		slog.Error("Failed to create event file", "path", filePath, "err", err)
+		return
+	}
+	defer file.Close()
+
+	// Create buffered writer
+	bufferedWriter := bufio.NewWriter(file)
+
+	// Write into buffer bypassing heap
+	encoder := json.NewEncoder(bufferedWriter)
+	if err := encoder.Encode(event); err != nil {
+		slog.Error("Failed to encode event to file", "path", filePath, "err", err)
+		return
+	}
+
+	// Flush buffer from RAM before end
+	if err := bufferedWriter.Flush(); err != nil {
+		slog.Error("Failed to flush event buffer to disk", "path", filePath, "err", err)
+	}
+	slog.Info("Event written as", "name", filename)
 }

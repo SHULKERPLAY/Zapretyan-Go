@@ -21,6 +21,7 @@ import (
 
 func main() {
 	// DEBUG. CMD: "go tool pprof -http=:8081 http://localhost:8080/debug/pprof/heap"
+	// Or browse http://localhost:8080/debug/pprof/goroutine?debug=1
 	// go pprof.PprofStart()
 
 	// Start logger and parse flags
@@ -30,7 +31,7 @@ func main() {
 	config.InitConfig()
 
 	// Default params
-	config.Params.Ver = "0.1.0"
+	config.Params.Ver = "2.1.0.0"
 	// Version of JSON message payload
 	config.Params.JsonVer = 1
 

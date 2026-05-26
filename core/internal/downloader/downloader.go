@@ -17,18 +17,21 @@ import (
 // HasNewerRemoteFiles checks URL array and returns true,
 // if at least one server has newer file than baseTime.
 func HasNewerRemoteFiles(baseTime time.Time, urls []string) bool {
-	defer slog.Debug("HasNewerRemoteFiles() ended")
-
+	defer slog.Debug("HasNewerRemoteFiles() ended", "filemod", baseTime, "url", urls)
+	
+	// Return if no urls
 	if len(urls) == 0 {
 		return false
 	}
 
-	// Context with cansel need to interrupt all requests
+	// Context with cancel need to interrupt all requests
 	// when one of servers returns true (reduce network and time consumption)
 	ctx, cancel := context.WithCancel(context.Background())
+	// Clear context when function ends
 	defer cancel()
 
-	// Channel for collecting results from goroutines
+	// Channel for collecting results buffered for goroutines 
+	// to not hang when function alredy returned
 	resultChan := make(chan bool, len(urls))
 	var wg sync.WaitGroup
 
@@ -36,8 +39,7 @@ func HasNewerRemoteFiles(baseTime time.Time, urls []string) bool {
 	for _, url := range urls {
 		wg.Add(1)
 		go func(fileURL string) {
-			defer wg.Done()
-
+			defer wg.Done()			
 			// Send quick HEAD request on server to get headers
 			// With cancel support through context
 			req, err := http.NewRequestWithContext(ctx, "HEAD", fileURL, nil)
@@ -49,8 +51,12 @@ func HasNewerRemoteFiles(baseTime time.Time, urls []string) bool {
 			client := &http.Client{Timeout: 10 * time.Second}
 			resp, err := client.Do(req)
 			if err != nil {
-				// Not breaking all other checks if one server is down
-				slog.Warn("Error while trying to get server headers", "url", fileURL, "err", err)
+				// If context was already canceled display debug log to avoid warnings spam
+				if ctx.Err() == context.Canceled {
+					slog.Debug("Request canceled because update already found", "url", fileURL)
+				} else {
+					slog.Warn("Error while trying to get server headers", "url", fileURL, "err", err)
+				}
 				return
 			}
 			defer resp.Body.Close()
@@ -86,14 +92,16 @@ func HasNewerRemoteFiles(baseTime time.Time, urls []string) bool {
 		}(url)
 	}
 
-	// Goroutine to close the channel when all check is done
+	// Goroutine for closing the channel.
+	// It wait before all download goroutines (including cancelled) will end
+	// and closes chan while not blocking results check below.
 	go func() {
 		wg.Wait()
 		close(resultChan)
 	}()
 
-	// Wait for result. If channel accepts at least one true - exit.
-	// If channel closed without results (All false or failed), return false.
+	// Read from channel. When first true arrives - instant return.
+	// If chan will close (all goroutines return nothing) cycle will end.
 	for hasNew := range resultChan {
 		if hasNew {
 			return true
@@ -252,6 +260,7 @@ func doDownloadAttempt(ctx context.Context, url string, destPath string) error {
 // Downloads temporary files as filename0.ext, filename1.ext taken from your filename and save in targetDir
 // Return array of paths to downloaded files
 func DownloadArray(ctx context.Context, urls []string, targetDir, filename string) ([]string, error) {
+	defer slog.Debug("DownloadArray() ended")
 	// Create context that cancel by timer or by global context end
 	localCtx, cancel := context.WithTimeout(ctx, time.Duration(config.Params.ExtOnceCtxTimeout-10)*time.Second)
 	defer cancel() // Clean resources
@@ -261,37 +270,22 @@ func DownloadArray(ctx context.Context, urls []string, targetDir, filename strin
 	fileext := filepath.Ext(fname)                  // ".ext"
 	fnameonly := strings.TrimSuffix(fname, fileext) // "filename"
 
-	var localWg sync.WaitGroup
-	// Channel for collecting errors data from goroutines
-	errChan := make(chan error, len(urls))
-
 	// List of paths to temporary downloaded files
 	tmpFiles := make([]string, len(urls))
 
 	// Parallel download
 	for i, url := range urls {
-		localWg.Add(1)
 		// Save as filename0.ext
 		tmpFiles[i] = filepath.Join(targetDir, fmt.Sprintf("%v%d%v", fnameonly, i, fileext))
 
-		go func(index int, downloadURL string, destPath string) {
-			defer localWg.Done()
-
-			// Pass conext to download function
-			if err := DownloadFile(localCtx, downloadURL, destPath); err != nil {
-				errChan <- fmt.Errorf("Error downloading %s: %w", downloadURL, err)
-			}
-		}(i, url, tmpFiles[i])
+		// Pass conext to download function
+		if err := DownloadFile(localCtx, url, tmpFiles[i]); err != nil {
+			// Return on error
+			return nil, fmt.Errorf("Error downloading %s: %w", url, err)
+		}
 	}
 
-	// Wait for goroutines to end
-	localWg.Wait()
-	close(errChan)
-
-	// Check if errors while downloading
-	if len(errChan) > 0 {
-		return nil, fmt.Errorf("%v", errChan)
-	}
+	// If no errors while downloading
 	return tmpFiles, nil
 }
 

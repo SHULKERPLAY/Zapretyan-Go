@@ -39,6 +39,7 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 	// First start of scan logic
 	slog.Info("Scanning for new changes...")
 	scan(ctx)
+	runtime.GC()
 
 	for {
 		select {
@@ -46,6 +47,7 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 			// Scan logic
 			slog.Info("Scanning for new changes...")
 			scan(ctx)
+			runtime.GC()
 
 		case <-ctx.Done():
 			// Graceful shutdown
@@ -56,9 +58,6 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func scan(ctx context.Context) {
-	// Run GC
-	defer runtime.GC()
-
 	// Remove temporary files after process
 	defer downloader.DeleteTmpFiles(config.DataParams.DataDirectory)
 
@@ -90,51 +89,18 @@ func scan(ctx context.Context) {
 		return
 	}
 
-	// Create localWaitgroup for scan processes
-	var localWg sync.WaitGroup
-
 	// Download and merge domain lists
-	domainch := make(chan bool)
 	if isDomain {
-		localWg.Add(1)
-		go func(){
-			res := listwriter.ListDownloadAndMerge(ctx, &localWg, config.DataParams.DomainSource, config.DataParams.DataDirectory, dpatht, "domain")
-			domainch <- res
-		}()
-	} else {
-		// If goroutine not started write false into channel to not block reading
-		domainch <- false 
+		isDomain = listwriter.ListDownloadAndMerge(ctx, config.DataParams.DomainSource, config.DataParams.DataDirectory, dpatht, "domain")
 	}
-
 	// Download and merge ip lists
-	ipch := make(chan bool)
 	if isIp {
-		localWg.Add(1)
-		go func(){
-			res := listwriter.ListDownloadAndMerge(ctx, &localWg, config.DataParams.IpSource, config.DataParams.DataDirectory, ipatht, "ip")
-			ipch <- res
-		}()
-	} else {
-		ipch <- false 
+		isIp = listwriter.ListDownloadAndMerge(ctx, config.DataParams.IpSource, config.DataParams.DataDirectory, ipatht, "ip")
 	}
-
 	// Download and merge community lists
-	comch := make(chan bool)
 	if isCommunity {
-		localWg.Add(1)
-		go func(){
-			res := listwriter.ListDownloadAndMerge(ctx, &localWg, config.DataParams.ComDomainSources, config.DataParams.DataDirectory, cpatht, "community")
-			comch <- res
-		}()
-	} else {
-		comch <- false 
+		isCommunity = listwriter.ListDownloadAndMerge(ctx, config.DataParams.ComDomainSources, config.DataParams.DataDirectory, cpatht, "community")
 	}
-
-	// Wait for list tasks to end
-	isDomain = <-domainch
-	isIp = <-ipch
-	isCommunity = <-comch
-	localWg.Wait()
 
 	if ctx.Err() != nil {
 		slog.Warn("Scanner stopped by context")
@@ -142,18 +108,16 @@ func scan(ctx context.Context) {
 	}
 
 	// Check hash to check if file rotation needed
-	if config.DataParams.Method == "hash" {
-		isDomain, isIp, isCommunity = hashcheck(dpath, ipath, cpath, dpatht, ipatht, cpatht, isDomain, isIp, isCommunity)
-	}
+	isDomain, isIp, isCommunity = hashcheck(dpath, ipath, cpath, dpatht, ipatht, cpatht, isDomain, isIp, isCommunity)
 
 	// Rotate latest updated files
-	diffprocess.RotateFiles(dpath, ipath, dpatho, ipatho, dpatht, ipatht, cpath, cpatht, isDomain, isIp, isCommunity)
+	diffprocess.RotateFiles(dpath, ipath, cpath, dpatht, ipatht, cpatht, dpatho, ipatho, isDomain, isIp, isCommunity)
 
 	// Start Diff computing
 	diffs := diffprocess.CheckDiff(dpath, dpatho, ipath, ipatho, isDomain, isIp)
 
 	// Create Core rkn Event
-	eventor.CreateRknEvent(ctx, &localWg, diffs, dpath, ipath)
+	eventor.CreateRknEvent(ctx, diffs, dpath, ipath)
 
 	slog.Info("Scan completed!")
 }
@@ -161,8 +125,6 @@ func scan(ctx context.Context) {
 // Check which lists has updates. True means need to check difference
 // Also downloading lists if need to calculate diff
 func defineUpdates(dpath, ipath, cpath string) (bool, bool, bool) {
-	defer slog.Debug("defineUpdates() ended")
-
 	var isDomain    bool // Is newer domains available?
 	var isIp 		bool // Is newer ips available?
 	var isCommunity bool // Is newer community available?
@@ -195,6 +157,7 @@ func defineUpdates(dpath, ipath, cpath string) (bool, bool, bool) {
 	}
 
 	// Return results
+	slog.Info("Checking updates for", "domain", isDomain, "ip", isIp, "com", isCommunity)
 	return isDomain, isIp, isCommunity
 }
 
@@ -208,7 +171,7 @@ func checkUpdates(localPath string, sources []string) bool {
 	if localInfo.Exists {
 		localTime = localInfo.ModTime
 	} else {
-		slog.Info("File not found and will be downloaded", "file", communityFN)
+		slog.Info("File not found and will be downloaded", "file", localPath)
 		// If file not found we need to download it
 		return true
 	}
@@ -231,34 +194,50 @@ func hashcheck(newTxt, newIpTxt, communityTxt, newTmp, newIpTmp, communityTmp st
 	// If not false then mode enabled, download and merge of files was successful
 	// If domain list enabled
 	if isDomain {
-		// Compare hashes
-		res, err := hasher.CompareFilesHash(newTxt, newTmp)
-		// Set false if hashes identical or error (Means that rotation will be ignored)
-		if err != nil {
-			slog.Warn("Error while comparing hashes", "hash1", newTxt, "hash2", newTmp, "err", err)
+		if probe := config.GetPathState(newTxt); !probe.Exists {
+			slog.Info("No latest domain file found. Allowing to rotate.")
+			domainState = true
 		} else {
-			domainState = !res
+			// Compare hashes
+			res, err := hasher.CompareFilesHash(newTxt, newTmp)
+			// Set false if hashes identical or error (Means that rotation will be ignored)
+			if err != nil {
+				slog.Warn("Error while comparing hashes", "hash1", newTxt, "hash2", newTmp, "err", err)
+			} else {
+				domainState = !res
+			}
 		}
 	}
 	// If ip list enabled
 	if isIp {
-		res, err := hasher.CompareFilesHash(newIpTxt, newIpTmp)
-		if err != nil {
-			slog.Warn("Error while comparing hashes", "hash1", newIpTxt, "hash2", newIpTmp, "err", err)
+		if probe := config.GetPathState(newIpTxt); !probe.Exists {
+			slog.Info("No latest IP file found. Allowing to rotate.")
+			ipState = true
 		} else {
-			ipState = !res
+			res, err := hasher.CompareFilesHash(newIpTxt, newIpTmp)
+			if err != nil {
+				slog.Warn("Error while comparing hashes", "hash1", newIpTxt, "hash2", newIpTmp, "err", err)
+			} else {
+				ipState = !res
+			}
 		}
 	}
 	// If community list enabled
 	if isCommunity {
-		res, err := hasher.CompareFilesHash(communityTxt, communityTmp)
-		if err != nil {
-			slog.Warn("Error while comparing hashes", "hash1", communityTxt, "hash2", communityTmp, "err", err)
+		if probe := config.GetPathState(newIpTxt); !probe.Exists {
+			slog.Info("No latest community file found. Allowing to rotate.")
+			communityState = true
 		} else {
-			communityState = !res
+			res, err := hasher.CompareFilesHash(communityTxt, communityTmp)
+			if err != nil {
+				slog.Warn("Error while comparing hashes", "hash1", communityTxt, "hash2", communityTmp, "err", err)
+			} else {
+				communityState = !res
+			}
 		}
 	}
 
+	slog.Info("Hashes compared. Different:", "domain", domainState, "ip", ipState, "com", communityState)
 	return domainState, ipState, communityState
 }
 

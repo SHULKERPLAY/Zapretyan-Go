@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"zapretyan-go/internal/flags"
 
 	"github.com/BurntSushi/toml"
 )
@@ -26,11 +27,12 @@ var Params *GlobalParams
 type GlobalParams struct {
 	// Internal statements
 
-	Ver      string // App version
-	AppPath  string // Specific OS path to executable directory
-	Registry map[string]string
-	JsonVer  int  // Version of stdin json messages
-	ExtReady bool // Automaticly sets true when extensions has been started
+	Ver       string // App version
+	AppPath   string // Specific OS path to executable directory
+	Registry  map[string]string
+	JsonVer   int  // Version of stdin json messages
+	ExtReady  bool // Automaticly sets true when extensions has been started
+	DumpEvent bool // DEBUG: Write every event json into ./debug folder
 
 	// Configuration file
 
@@ -99,6 +101,7 @@ func parseAppConfig() {
 	cfg := RawCfg.Core
 
 	// core.*
+	Params.DumpEvent = flags.Args.DumpEvent
 	Params.AllowCustom = GetBoolSafe(cfg, "allow_custom_extensions", false)
 	Params.SendEmptyEvent = GetBoolSafe(cfg, "send_empty_report", true)
 	Params.DisableIP = GetBoolSafe(cfg, "disable_ip_comparsion", false)
@@ -169,7 +172,7 @@ func parseAppConfig() {
 	}
 
 	// core.data.ip_source
-	var defaultips = []string{"https://antifilter.download/list/ip.lst", "https://antifilter.download/list/ipsum.lst"}
+	var defaultips = []string{"https://antifilter.download/list/ip.lst", "https://antifilter.download/list/subnet.lst"}
 	if Params.DisableIP {
 		// Set default if disabled
 		DataParams.IpSource = defaultips

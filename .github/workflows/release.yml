@@ -105,7 +105,7 @@ jobs:
         # COMPILE CORE
         echo "Compiling core (Core)..."
         cd "$ROOT_DIR/core/cmd"
-        go build -v -trimpath -ldflags="-s -w -buildid=" -o "$ROOT_DIR/$BUILD_DIR/core$EXT" .
+        go build -v -trimpath -ldflags="-s -w -buildid=" -o "$ROOT_DIR/$BUILD_DIR/zapretyanGo$EXT" .
         cd "$ROOT_DIR/core"
         
         # Copy config.toml from core to release root

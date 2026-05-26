@@ -1,16 +1,8 @@
 {
-  "RT_GROUP_ICON": {
-    "APP": {
-      "0000": [
-        "ico256.png",
-        "ico32.png"
-      ]
-    }
-  },
   "RT_MANIFEST": {
     "#1": {
       "0409": {
-        "description": "CLI tool for monitoring netbans in Russia with advanced extensions",
+        "description": "Official external plugin for Zapretyan-Go",
         "minimum-os": "win7",
         "execution-level": "as invoker",
         "ui-access": false,
@@ -26,8 +18,8 @@
         "segment-heap": false,
         "use-common-controls-v6": true,
         "identity": {
-          "name": "shulkerplay.ZapretyanGoCore",
-          "version": "2.1.0.0"
+          "name": "shulkerplay.ZapretyanGoLocalFs",
+          "version": "1.0.0"
         }
       }
     }
@@ -36,22 +28,22 @@
     "#1": {
       "0000": {
         "fixed": {
-          "file_version": "2.1.0.0",
-          "product_version": "2.1.0.0"
+          "file_version": "1.0.0",
+          "product_version": "1.0.0"
         },
         "info": {
           "0409": {
-            "FileVersion": "v2.1.0.0",
-            "ProductVersion": "v2.1.0.0",
+            "FileVersion": "v1.0.0",
+            "ProductVersion": "v1.0.0",
             "Comments": "Built by GitHub Actions",
             "CompanyName": "SHULKERPLAY",
-            "FileDescription": "Zapretyan-Go Core Service",
-            "InternalName": "zapretyanGo.exe",
+            "FileDescription": "Zapretyan-Go LocalFS Plugin",
+            "InternalName": "localfs.exe",
             "LegalCopyright": "© 2026 Aleksandr Volkhin. All rights reserved.",
             "LegalTrademarks": "",
-            "OriginalFilename": "zapretyanGo.exe",
+            "OriginalFilename": "localfs.exe",
             "PrivateBuild": "",
-            "ProductName": "Zapretyan-Go",
+            "ProductName": "Zapretyan-Go LocalFS Plugin",
             "SpecialBuild": ""
           }
         }
