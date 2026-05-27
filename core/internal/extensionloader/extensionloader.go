@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -105,10 +104,10 @@ func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.Extension
 	select {
 	case hs := <-hsCh:
 		if !validateAndBurn(name, hs.Version) {
-			return nil, fmt.Errorf("Plugin %v already loaded or not valid! To load custom plugins set 'allow_custom_extensions = true' in config.toml", name)
+			return nil, fmt.Errorf("PLUGIN %v ALREADY LOADED OR NOT VALID! TO LOAD CUSTOM PLUGINS SET 'allow_custom_extensions = true' IN config.toml", name)
 		}
 		if hs.JsonVer != config.Params.JsonVer {
-			slog.Warn("Plugin JSON version mismatch! Plugin can expirience issues parsing data", "corejsonver", config.Params.JsonVer, "extjsonver", hs.JsonVer)
+			slog.Warn("PLUGIN JSON VERSION MISMATCH! PLUGIN CAN EXPIRIENCE ISSUES PARSING DATA", "corejsonver", config.Params.JsonVer, "extjsonver", hs.JsonVer)
 		}
 		mode = strings.ToUpper(hs.Mode)
 		if mode != "STREAM" && mode != "ONCE" { return nil, fmt.Errorf("EXTENSION MODE NOT 'ONCE' OR 'STREAM'") }
@@ -174,9 +173,8 @@ func InitExtensions() {
 	}
 
 	if len(extensionhandler.ValidExtensions) < 1 {
-		slog.Error("FATAL: AT LEAST ONE EXTENSION MUST BE STARTED!")
-		os.Exit(1)
+		slog.Warn("NO EXTENSIONS STARTED! CORE WILL NOT CREATE ANY EVENTS")
+	} else {
+		slog.Info("Extension initialize completed", "valid_count", len(extensionhandler.ValidExtensions))
 	}
-
-	slog.Info("Extension initialize completed", "valid_count", len(extensionhandler.ValidExtensions))
 }

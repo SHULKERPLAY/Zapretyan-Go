@@ -45,6 +45,12 @@ type DiffGroup struct {
 // Create new event from diff. Requires filepaths to new domain and IPs lists
 func CreateRknEvent(ctx context.Context, rawDiff diffprocess.RawDiff, dpath, ipath string) {
 	defer slog.Debug("CreateRknEvent() ended")
+	
+	// Check if any events is started
+	if len(extensionhandler.ValidExtensions) < 1 {
+		slog.Warn("No extensions started. Skip event creation")
+		return
+	}
 
 	// Structure changes data
 	banned := fillRknDiffGroup(rawDiff.Domain.Added, true, dpath)

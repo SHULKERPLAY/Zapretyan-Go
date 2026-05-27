@@ -82,6 +82,7 @@ func scan(ctx context.Context) {
 	}
 
 	// Define updates state
+	slog.Info("[[ STEP 1: Define updates to download ]]")
 	isDomain, isIp, isCommunity := defineUpdates(dpath, ipath, cpath)
 
 	if ctx.Err() != nil {
@@ -90,6 +91,7 @@ func scan(ctx context.Context) {
 	}
 
 	// Download and merge domain lists
+	slog.Info("[[ STEP 2: Download and merge defined lists ]]")
 	if isDomain {
 		isDomain = listwriter.ListDownloadAndMerge(ctx, config.DataParams.DomainSource, config.DataParams.DataDirectory, dpatht, "domain")
 	}
@@ -108,15 +110,19 @@ func scan(ctx context.Context) {
 	}
 
 	// Check hash to check if file rotation needed
+	slog.Info("[[ STEP 3: Check size or hashes ]]")
 	isDomain, isIp, isCommunity = hashcheck(dpath, ipath, cpath, dpatht, ipatht, cpatht, isDomain, isIp, isCommunity)
 
 	// Rotate latest updated files
+	slog.Info("[[ STEP 4: Rotate temporary files to new ]]")
 	diffprocess.RotateFiles(dpath, ipath, cpath, dpatht, ipatht, cpatht, dpatho, ipatho, isDomain, isIp, isCommunity)
 
 	// Start Diff computing
+	slog.Info("[[ STEP 5: Computing Diffs ]]")
 	diffs := diffprocess.CheckDiff(dpath, dpatho, ipath, ipatho, isDomain, isIp)
 
 	// Create Core rkn Event
+	slog.Info("[[ STEP 6: Create and send event ]]")
 	eventor.CreateRknEvent(ctx, diffs, dpath, ipath)
 
 	slog.Info("Scan completed!")
