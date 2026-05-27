@@ -19,7 +19,7 @@
         "use-common-controls-v6": true,
         "identity": {
           "name": "shulkerplay.ZapretyanGoLocalFs",
-          "version": "1.0.0"
+          "version": "1.0.1"
         }
       }
     }
@@ -28,13 +28,13 @@
     "#1": {
       "0000": {
         "fixed": {
-          "file_version": "1.0.0",
-          "product_version": "1.0.0"
+          "file_version": "1.0.1",
+          "product_version": "1.0.1"
         },
         "info": {
           "0409": {
-            "FileVersion": "v1.0.0",
-            "ProductVersion": "v1.0.0",
+            "FileVersion": "v1.0.1",
+            "ProductVersion": "v1.0.1",
             "Comments": "Built by GitHub Actions",
             "CompanyName": "SHULKERPLAY",
             "FileDescription": "Zapretyan-Go LocalFS Plugin",
