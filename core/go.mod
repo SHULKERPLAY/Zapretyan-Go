@@ -5,5 +5,6 @@ go 1.26.3
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/lmittmann/tint v1.1.3
+	golang.org/x/sys v0.45.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )

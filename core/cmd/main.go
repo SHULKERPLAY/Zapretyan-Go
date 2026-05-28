@@ -13,8 +13,9 @@ import (
 	"zapretyan-go/internal/diffscanner"
 	"zapretyan-go/internal/extensionhandler"
 	"zapretyan-go/internal/extensionloader"
+	"zapretyan-go/internal/flags"
 	"zapretyan-go/internal/logger"
-
+	"zapretyan-go/internal/sysservice"
 	// DEBUG
 	// "zapretyan-go/internal/pprof"
 )
@@ -30,6 +31,23 @@ func main() {
 	// Load Configuration
 	config.InitConfig()
 
+	// Check for --install flag
+	if flags.Args.Install {
+		if err := sysservice.Install(); err != nil {
+			slog.Error("Error installing service", "err", err)
+		}
+		config.Pause()
+		os.Exit(0)
+	}
+	// Check for --uninstall flag
+	if flags.Args.Uninstall {
+		if err := sysservice.Uninstall(); err != nil {
+			slog.Error("Error uninstalling service", "err", err)
+		}
+		config.Pause()
+		os.Exit(0)
+	}
+
 	// Default params
 	config.Params.Ver = "2.1.0.0"
 	// Version of JSON message payload
@@ -44,6 +62,12 @@ func main() {
 
 	// Create Goroutines counter
 	var wg sync.WaitGroup
+
+	// If started with --run flag then we started as a system service
+	if flags.Args.Service {
+		wg.Add(1) // here wg.Done() is calling inside system specific files
+		go sysservice.Run(ctx, cancel, &wg)
+	}
 
 	// Start STREAM extensions
 	wg.Add(1)

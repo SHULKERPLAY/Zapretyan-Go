@@ -80,6 +80,7 @@ func parseConfig() {
 	// Parse config
 	if _, err := toml.DecodeFile(filepath.Join(Params.AppPath, "config.toml"), RawCfg); err != nil {
 		slog.Error("FATAL: Error while parsing config", "err", err)
+		Pause()
 		os.Exit(1)
 	}
 
@@ -130,6 +131,7 @@ func parseAppConfig() {
 		err := os.MkdirAll(dd.AbsPath, 0755)
 		if err != nil {
 			slog.Error("FATAL: Cannot create 'core.data.data_dir'", "dir", dd.AbsPath, "err", err)
+			Pause()
 			os.Exit(1)
 		}
 		dd = GetPathState(dd.AbsPath)
@@ -137,6 +139,7 @@ func parseAppConfig() {
 
 	if !dd.IsDir {
 		slog.Error("FATAL: 'core.data.data_dir' IS NOT DIRECTORY!", "path", dd.AbsPath)
+		Pause()
 		os.Exit(1)
 	}
 	DataParams.DataDirectory = dd.AbsPath
@@ -385,13 +388,14 @@ func getNestedValue(m map[string]interface{}, key string) (interface{}, bool) {
 }
 
 // Returns directory where app is installed even if started through symlink
-func getAppPath() string {
+func GetAppPath() string {
 	defer slog.Debug("getAppPath() ended")
 	
 	// Get executable path
 	exePath, err := os.Executable()
 	if err != nil {
 		slog.Error("FATAL: Cannot get the executable path", "err", err)
+		Pause()
 		os.Exit(1)
 	}
 
@@ -399,6 +403,7 @@ func getAppPath() string {
 	realExePath, err := filepath.EvalSymlinks(exePath)
 	if err != nil {
 		slog.Error("FATAL: Cannot evaluate symlink for executable", "err", err)
+		Pause()
 		os.Exit(1)
 	}
 
@@ -426,6 +431,36 @@ func DumpStruct(title string, v interface{}) {
 	slog.Debug("--- [END OF DUMP] ---")
 }
 
+// Output memory info in log with specified delay in seconds
+func DumpMemoryStatistics(delay int) {
+	if delay >= 1 {
+		time.Sleep(time.Duration(delay) * time.Second) // Sleep n Seconds before output statistics
+	}
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	slog.Debug("--- [MEMSTAT] ---")
+	slog.Debug("Live memory on heap", "(KB)", m.Alloc / 1024)
+	slog.Debug("Total handling by GO runtime", "(KB)", m.Sys / 1024)
+	slog.Debug("Allocated from total for goroutine stacks", "(KB)", m.StackInuse / 1024)
+	slog.Debug("Cleaned by GC, but not returned for OS", "(KB)", m.HeapReleased / 1024)
+	slog.Debug("--- [END OF MEMSTAT] ---")
+}
+
+// Helper to stop execution until user press enter.
+// Created for users to catch up with logs in ui while app is closing.
+// e.g. on windows if core not started from cmd window will quickly close on app exit
+// and user do not catch with log reading.
+// Pauses are ignored in system service mode!
+func Pause() {
+	if !flags.Args.Service {
+		slog.Warn("Press enter to continue...")
+		// Read one byte from stdin (this is enough to block the flow)
+		var b [1]byte
+		os.Stdin.Read(b[:])
+	}
+}
+
 func InitConfig() {
 	defer slog.Debug("InitConfig() ended")
 	// Init params
@@ -442,11 +477,12 @@ func InitConfig() {
 	Params.ExtReady = false
 
 	// Get Application Directory
-	Params.AppPath = getAppPath()
+	Params.AppPath = GetAppPath()
 
 	// Change dir to this app
 	if err := os.Chdir(Params.AppPath); err != nil {
 		slog.Error("FATAL: Cannot change work directory to", "dir", Params.AppPath)
+		Pause()
 		os.Exit(1)
 	}
 
@@ -459,6 +495,7 @@ func InitConfig() {
 
 	if Params.ExtOnceCtxTimeout > Params.ReportInterval * 3600 {
 		slog.Error("FATAL: 'once_ctx_deadline' CANNOT BE LONGER THAN 'report_interval'! PLEASE CHECK YOUR config.toml", "once_ctx_deadline_sec", Params.ExtOnceCtxTimeout, "report_interval_sec", Params.ReportInterval * 3600)
+		Pause()
 		os.Exit(1)
 	}
 }

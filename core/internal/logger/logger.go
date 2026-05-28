@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"zapretyan-go/internal/config"
 	"zapretyan-go/internal/flags"
 
 	"github.com/lmittmann/tint"
@@ -45,6 +46,9 @@ func SetupLogger() {
 		AddSource:  addsource,
 	}))
 	slog.SetDefault(logger)
+
+	// Send first default log messages
+	slog.Debug("Got flags.", "flags", flags.Args)
 	slog.Info("Log level", "level", level)
 }
 
@@ -53,12 +57,21 @@ func SetupLogger() {
 // dOutput argument accepts io.Writes such as os.Stdout to return it by default.
 // If flag not set returns the stream that was specified as default.
 func logRotate(dOutput io.Writer) (io.Writer, bool) {
+	// Color enabled by default
+	var iscolor bool
+
+	// If no color in logs flag
+	if flags.Args.LogNoclr {
+		iscolor = true
+	}
 	// If flag not set
 	if !flags.Args.LogFile {
 		// Fallback to Console-Only output
-		return dOutput, false
+		return dOutput, iscolor
 	}
-	logPath, _ := filepath.Abs("./logs/zapretyan.log")
+
+	// Get fixed folder for logs close to app directory
+	logPath := filepath.Join(config.GetAppPath(), "logs", "zapretyan.log")
 	slog.Info("", "logfile", logPath)
 
 	// Check if we can write to this directory
@@ -66,6 +79,7 @@ func logRotate(dOutput io.Writer) (io.Writer, bool) {
 	// Create directory if not existing
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		slog.Error("[LOGGER] FATAL: NO PERMISSIONS TO CREATE DIR", "dir", dir, "err", err)
+		config.Pause()
 		os.Exit(1)
 	}
 
@@ -76,7 +90,7 @@ func logRotate(dOutput io.Writer) (io.Writer, bool) {
 		slog.Error("[LOGGER] Cannot write to file. Fallback to Console-Only logs.", "file", logPath, "err", err)
 
 		// Fallback to Console-Only output
-		return dOutput, false
+		return dOutput, iscolor
 	}
 	testFile.Close() // Test success
 
@@ -91,5 +105,5 @@ func logRotate(dOutput io.Writer) (io.Writer, bool) {
 
 	// Create combined stream to broadcast logs into console and logfile
 	w := io.MultiWriter(logRoller, dOutput)
-	return w, true
+	return w, iscolor
 }

@@ -13,7 +13,7 @@ disable_community = true      # Whether to disable downloading of []community_do
         "https://antifilter.download/list/domains.lst"
     ] # Deduplicate and Merge into new.txt
     ip_source = [
-        "https://antifilter.download/list/ip.lst",
+        "https://antifilter.download/list/ipresolve.lst",
         "https://antifilter.download/list/subnet.lst" 
     ] # Unpack all addresses with prefixes, deduplicate and merge into newip.txt
     community_domain_sources = [

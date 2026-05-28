@@ -39,7 +39,9 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 	// First start of scan logic
 	slog.Info("Scanning for new changes...")
 	scan(ctx)
+	time.Sleep(2 * time.Second)
 	runtime.GC()
+	config.DumpMemoryStatistics(60)
 
 	for {
 		select {
@@ -47,6 +49,7 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 			// Scan logic
 			slog.Info("Scanning for new changes...")
 			scan(ctx)
+			time.Sleep(2 * time.Second)
 			runtime.GC()
 
 		case <-ctx.Done():
@@ -126,6 +129,7 @@ func scan(ctx context.Context) {
 	eventor.CreateRknEvent(ctx, diffs, dpath, ipath)
 
 	slog.Info("Scan completed!")
+	config.DumpMemoryStatistics(0)
 }
 
 // Check which lists has updates. True means need to check difference
