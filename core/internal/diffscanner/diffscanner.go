@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"time"
 	"zapretyan-go/internal/listwriter"
@@ -39,9 +38,7 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 	// First start of scan logic
 	slog.Info("Scanning for new changes...")
 	scan(ctx)
-	time.Sleep(2 * time.Second)
-	runtime.GC()
-	config.DumpMemoryStatistics(60)
+	go config.DumpMemoryStatistics(60, true, 5)
 
 	for {
 		select {
@@ -49,8 +46,7 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 			// Scan logic
 			slog.Info("Scanning for new changes...")
 			scan(ctx)
-			time.Sleep(2 * time.Second)
-			runtime.GC()
+			go config.DumpMemoryStatistics(60, true, 5)
 
 		case <-ctx.Done():
 			// Graceful shutdown
@@ -129,7 +125,7 @@ func scan(ctx context.Context) {
 	eventor.CreateRknEvent(ctx, diffs, dpath, ipath)
 
 	slog.Info("Scan completed!")
-	config.DumpMemoryStatistics(0)
+	config.DumpMemoryStatistics(0, false, 0)
 }
 
 // Check which lists has updates. True means need to check difference

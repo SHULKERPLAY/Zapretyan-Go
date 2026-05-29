@@ -431,8 +431,20 @@ func DumpStruct(title string, v interface{}) {
 	slog.Debug("--- [END OF DUMP] ---")
 }
 
-// Output memory info in log with specified delay in seconds
-func DumpMemoryStatistics(delay int) {
+// Output memory info in log with specified delay in seconds. 
+// Boolean gc decides whether to start GC before delay.
+// gcDelay int specifies delay before starting GC. gcDelay also increases memory info log output delay.
+// It is recomended to start from goroutine. It is recomended to start GC ONLY IF ALL ACTIVE OPERATIONS WAS COMPLETED!
+func DumpMemoryStatistics(delay int, gc bool, gcDelay int) {
+	// Start GC?
+	if gc {
+		// Delay to start GC
+		if gcDelay >= 1 {
+			time.Sleep(time.Duration(gcDelay) * time.Second) // Sleep n Seconds before start GC
+		}
+		runtime.GC()
+	}
+	// Delay of data after GC step
 	if delay >= 1 {
 		time.Sleep(time.Duration(delay) * time.Second) // Sleep n Seconds before output statistics
 	}
