@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -80,16 +81,21 @@ func installService() error {
 	if err != nil {
 		return err
 	}
+	slog.Debug("Got binary info", "path", binPath, "workdir", workDir)
 
 	init := detectInitSystem()
 	switch init {
 	case sysSystemd:
+		slog.Info("Detected Systemd env")
 		return installSystemd(binPath, workDir)
 	case sysOpenRC:
+		slog.Info("Detected OpenRC env")
 		return installOpenRC(binPath, workDir)
 	case sysUpstart:
+		slog.Info("Detected Upstart env")
 		return installUpstart(binPath, workDir)
 	case sysSysVinit:
+		slog.Info("Detected SysVinit env")
 		return installSysVinit(binPath, workDir)
 	default:
 		return fmt.Errorf("error: failed to recognise Linux init system (Unknown init)")
@@ -100,12 +106,16 @@ func uninstallService() error {
 	init := detectInitSystem()
 	switch init {
 	case sysSystemd:
+		slog.Info("Detected Systemd env")
 		return uninstallSystemd()
 	case sysOpenRC:
+		slog.Info("Detected OpenRC env")
 		return uninstallOpenRC()
 	case sysUpstart:
+		slog.Info("Detected Upstart env")
 		return uninstallUpstart()
 	case sysSysVinit:
+		slog.Info("Detected SysVinit env")
 		return uninstallSysVinit()
 	default:
 		return fmt.Errorf("error: failed to recognise Linux init system on deletion")
@@ -127,15 +137,17 @@ KillSignal=SIGINT
 Restart=on-failure
 RestartSec=60s
 ExecStart="{{.BinPath}}" --run
-WorkingDirectory={{.WorkDir}}
+WorkingDirectory={{.WorkDir}}/
 
 [Install]
 WantedBy=multi-user.target
 `
 
 func installSystemd(binPath, workDir string) error {
+	slog.Info("Trying to uninstall old service...")
 	_ = uninstallSystemd() // Remove old service
 
+	slog.Info("Installing service...")
 	tmpl, _ := template.New("systemd").Parse(systemdTemplate)
 	var buf bytes.Buffer
 	tmpl.Execute(&buf, map[string]string{"BinPath": binPath, "WorkDir": workDir})
@@ -145,16 +157,21 @@ func installSystemd(binPath, workDir string) error {
 		return err
 	}
 
+	slog.Info("Running systemctl daemon-reload...")
 	_ = exec.Command("systemctl", "daemon-reload").Run()
 	_ = exec.Command("systemctl", "enable", strings.ToLower(ServiceName)).Run()
+	slog.Info("Starting service...")
 	return exec.Command("systemctl", "start", strings.ToLower(ServiceName)).Run()
 }
 
 func uninstallSystemd() error {
 	name := strings.ToLower(ServiceName)
+	slog.Info("Stopping service...")
 	_ = exec.Command("systemctl", "stop", name).Run()
+	slog.Info("Disable and remove service from systemd")
 	_ = exec.Command("systemctl", "disable", name).Run()
 	_ = os.Remove("/etc/systemd/system/" + name + ".service")
+	slog.Info("Running systemctl daemon-reload...")
 	return exec.Command("systemctl", "daemon-reload").Run()
 }
 
@@ -165,9 +182,9 @@ func uninstallSystemd() error {
 const openrcTemplate = `#!/sbin/openrc-run
 description="Zapretyan-Go core service"
 supervisor="supervise-daemon"
-command="{{.BinPath}}"
+command={{.BinPath}}
 command_args="--run"
-directory="{{.WorkDir}}"
+directory={{.WorkDir}}/
 respawn_delay=60
 respawn_max=10
 
@@ -178,17 +195,24 @@ depend() {
 `
 
 func installOpenRC(binPath, workDir string) error {
+	// Escape spaces for OpenRC
+	workDir = strings.ReplaceAll(workDir, " ", "\\ ")
+	binPath = strings.ReplaceAll(binPath, " ", "\\ ")
+
+	slog.Info("Trying to uninstall old service...")
 	_ = uninstallOpenRC() // Remove old service
 
 	tmpl, _ := template.New("openrc").Parse(openrcTemplate)
 	var buf bytes.Buffer
 	tmpl.Execute(&buf, map[string]string{"BinPath": binPath, "WorkDir": workDir})
 
+	slog.Info("Writing service to init.d...")
 	scriptPath := "/etc/init.d/" + strings.ToLower(ServiceName)
 	if err := os.WriteFile(scriptPath, buf.Bytes(), 0755); err != nil { // RIGHTS 755 IS REQUIRED!
 		return err
 	}
 
+	slog.Info("Running rc-update...")
 	_ = exec.Command("rc-update", "add", strings.ToLower(ServiceName), "default").Run()
 	return exec.Command(scriptPath, "start").Run()
 }
@@ -196,7 +220,9 @@ func installOpenRC(binPath, workDir string) error {
 func uninstallOpenRC() error {
 	name := strings.ToLower(ServiceName)
 	scriptPath := "/etc/init.d/" + name
+	slog.Info("Stopping service...")
 	_ = exec.Command(scriptPath, "stop").Run()
+	slog.Info("Removing service...")
 	_ = exec.Command("rc-update", "del", name).Run()
 	return os.Remove(scriptPath)
 }
@@ -213,29 +239,34 @@ respawn
 respawn limit 10 60
 
 script
-    cd {{.WorkDir}}
+    cd "{{.WorkDir}}/"
     exec "{{.BinPath}}" --run
 end script
 `
 
 func installUpstart(binPath, workDir string) error {
+	slog.Info("Trying to uninstall old service...")
 	_ = uninstallUpstart()
 
 	tmpl, _ := template.New("upstart").Parse(upstartTemplate)
 	var buf bytes.Buffer
 	tmpl.Execute(&buf, map[string]string{"BinPath": binPath, "WorkDir": workDir})
 
+	slog.Info("Writing service to /etc/init...")
 	confPath := "/etc/init/" + strings.ToLower(ServiceName) + ".conf"
 	if err := os.WriteFile(confPath, buf.Bytes(), 0644); err != nil {
 		return err
 	}
 
+	slog.Info("Starting service...")
 	return exec.Command("initctl", "start", strings.ToLower(ServiceName)).Run()
 }
 
 func uninstallUpstart() error {
 	name := strings.ToLower(ServiceName)
+	slog.Info("Stopping service...")
 	_ = exec.Command("initctl", "stop", name).Run()
+	slog.Info("Removing service...")
 	return os.Remove("/etc/init/" + name + ".conf")
 }
 
@@ -254,13 +285,13 @@ const sysvinitTemplate = `#!/bin/sh
 NAME="{{.Name}}"
 PIDFILE="/var/run/$NAME.pid"
 COMMAND="{{.BinPath}}"
-DIR="{{.WorkDir}}"
+DIR="{{.WorkDir}}/"
 
 case "$1" in
   start)
     echo "Starting $NAME..."
     cd "$DIR"
-    start-stop-daemon --start --background --make-pidfile --pidfile "$PIDFILE" --exec "$COMMAND" -- --run
+    start-stop-daemon --start --background --make-pidfile --pidfile "$PIDFILE" --name "$NAME" --startas "$COMMAND" -- --run
     ;;
   stop)
     echo "Stopping $NAME..."
@@ -280,6 +311,7 @@ exit 0
 `
 
 func installSysVinit(binPath, workDir string) error {
+	slog.Info("Trying to uninstall old service...")
 	_ = uninstallSysVinit()
 
 	tmpl, _ := template.New("sysv").Parse(sysvinitTemplate)
@@ -290,6 +322,7 @@ func installSysVinit(binPath, workDir string) error {
 		"WorkDir": workDir,
 	})
 
+	slog.Info("Writing service to init.d...")
 	scriptPath := "/etc/init.d/" + strings.ToLower(ServiceName)
 	if err := os.WriteFile(scriptPath, buf.Bytes(), 0755); err != nil {
 		return err
@@ -297,8 +330,10 @@ func installSysVinit(binPath, workDir string) error {
 
 	// The registration command depends on distrib (Debian/Ubuntu uses update-rc.d, RedHat - chkconfig)
 	if _, err := exec.LookPath("update-rc.d"); err == nil {
+		slog.Info("Running update-rc.d...")
 		_ = exec.Command("update-rc.d", strings.ToLower(ServiceName), "defaults").Run()
 	} else if _, err := exec.LookPath("chkconfig"); err == nil {
+		slog.Info("Running chkconfig --add...")
 		_ = exec.Command("chkconfig", "--add", strings.ToLower(ServiceName)).Run()
 	}
 
@@ -308,11 +343,14 @@ func installSysVinit(binPath, workDir string) error {
 func uninstallSysVinit() error {
 	name := strings.ToLower(ServiceName)
 	scriptPath := "/etc/init.d/" + name
+	slog.Info("Stopping service...")
 	_ = exec.Command(scriptPath, "stop").Run()
 
 	if _, err := exec.LookPath("update-rc.d"); err == nil {
+		slog.Info("Running update-rc.d...")
 		_ = exec.Command("update-rc.d", "-f", name, "remove").Run()
 	} else if _, err := exec.LookPath("chkconfig"); err == nil {
+		slog.Info("Running chkconfig --del...")
 		_ = exec.Command("chkconfig", "--del", name).Run()
 	}
 
