@@ -66,17 +66,17 @@ func CreateRknEvent(ctx context.Context, rawDiff diffprocess.RawDiff, dpath, ipa
 		// Return if all diffs empty and we not allowed to send empty diffs
 		slog.Info("Diffs empty. Skip event creation")
 		return
-	} else {
-		// Build DiffData object
-		data := DiffData{
-			Banned:     banned,
-			Unbanned:   unbanned,
-			BannedIP:   bannedIp,
-			UnbannedIP: unbannedIp,
-		}
-
-		sendRknEvent(ctx, data)
 	}
+	
+	// Build DiffData object
+	data := DiffData{
+		Banned:     banned,
+		Unbanned:   unbanned,
+		BannedIP:   bannedIp,
+		UnbannedIP: unbannedIp,
+	}
+
+	sendRknEvent(ctx, data)
 }
 
 // Build DiffGroup object. If isTotal false - Total (int) stays empty.
