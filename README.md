@@ -1,13 +1,10 @@
-![Запретян <3](https://github.com/SHULKERPLAY/Zapretyan-Go/blob/main/zapretyango.webp)
-
+![Запретян-Go](https://github.com/SHULKERPLAY/Zapretyan-Go/blob/main/zapretyango.webp)
 
 <center>
 <h1>Zapretyan-Go</h1>
 <p><b>Кроссплатформенный локальный API с поддержкой кастомных самописных плагинов для любых операций с данными о новых блокировках</b></p>
 <p>
-  <a href="https://www.codefactor.io/repository/github/shulkerplay/zapretyan-go/overview/main">
-    <img src="https://www.codefactor.io/repository/github/shulkerplay/zapretyan-go/badge/main" alt="CodeFactor">
-  </a>
+  <img src="https://www.codefactor.io/repository/github/shulkerplay/zapretyan-go/badge/main" alt="CodeFactor">
   <img src="https://img.shields.io/github/v/release/shulkerplay/zapretyan-go" alt="GitHub Release">
   <img src="https://img.shields.io/github/actions/workflow/status/shulkerplay/zapretyan-go/release.yml" alt="GitHub Actions Workflow Status">
   <img src="https://img.shields.io/github/languages/code-size/shulkerplay/zapretyan-go" alt="GitHub code size in bytes">
@@ -36,6 +33,7 @@
   - [Как создать свой плагин](#как-создать-свой-плагин)
     - [Обязательные критерии для работы вашего плагина](#обязательные-критерии-для-работы-вашего-плагина)
 - [Прочее](#прочее)
+  - [Собери свою Запретян](#собери-свою-запретян)
 
 <details>
   <summary>Официальные встроенные плагины (Нажмите)</summary>
@@ -44,6 +42,8 @@
         Записывает JSON полученного события на диск в .txt расширении
         <li><a style="color: orange;">⏳ DiscordSender</a></li>
         В разработке. Повторяет логику оригинальной Запретян в новой форме, присылая уведомления сразу при наличии изменений
+        <li><a style="color: orange;">⏳ AnalyticsV2</a></li>
+        В разработке. Повторяет функцию аналитики оригинальной Запретян. Генерирует один ежедневный JSON и собирает аналитику в CSV таблицу
         <li><a style="color: orange;">⏳ DiscordOnline</a></li>
         В разработке. Повторяет функцию оригинальной Запретян, позволяя вашему Discord боту всегда оставаться в сети, пока ядро Запретян Go запущено
         <li><a style="color: orange;">⏳ WebhookSender</a></li>
@@ -82,3 +82,5 @@
 ### Обязательные критерии для работы вашего плагина
 
 # Прочее
+
+## Собери свою Запретян
