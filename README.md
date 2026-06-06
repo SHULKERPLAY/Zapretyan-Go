@@ -14,7 +14,7 @@
     <img src="https://img.shields.io/website?url=https%3A%2F%2Flunarcreators.ru&link=https%3A%2F%2Flunarcreators.ru" alt="Website">
   </a>
 </p>
-[ <a href="https://github.com/SHULKERPLAY/Zapretyan-Lite" style="color: pink;">Запретян лайт</a> | <a href="https://github.com/SHULKERPLAY/Zapretyan" style="color: lightgreen;">Запретян</a> / <a href="https://lunarcreators.ru/zapretyan/app/" style="color: MediumPurple;">Discord бот</a> / <a href="https://github.com/SHULKERPLAY/Zapretyan/tree/main/finder" style="color: MediumPurple;">Domain Matcher</a> | <b><u>Запретян-Go</u></b> ]
+[ <a href="https://github.com/SHULKERPLAY/Zapretyan-Lite" style="color: pink;">Запретян лайт</a> | <a href="https://github.com/SHULKERPLAY/Zapretyan" style="color: lightgreen;">Запретян</a> / <a href="https://lunarcreators.ru/zapretyan/app/" style="color: MediumPurple;">Discord бот</a> / <a href="https://github.com/SHULKERPLAY/Zapretyan/tree/main/finder" style="color: MediumPurple;">Domain Matcher</a> | <b><ins>Запретян-Go</ins></b> ]
 </center><br/>
 
 <h3>Содержание документации</h3>
