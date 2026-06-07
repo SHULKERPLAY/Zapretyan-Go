@@ -93,6 +93,8 @@ console.log("Это мой скрипт NodeJS!");
 - Запуск плагина на Node используя bash как прокси
 ```bat
 @echo off
+:: .\extensions\myplugin.bat
+
 :: Переходим в папку, где лежит этот batch-файл (Если нужно)
 cd /d "%~dp0"
 
@@ -102,6 +104,7 @@ cd /d "%~dp0"
 - Или если нужно передать аргумент компилированному приложению
 ```bat
 @echo off
+:: .\extensions\myplugin.bat
 
 myplugin.exe -arg1 --arg2
 ```
