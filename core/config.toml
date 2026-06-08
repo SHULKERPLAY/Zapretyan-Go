@@ -17,8 +17,8 @@ disable_community = true      # Whether to disable downloading of []community_do
         "https://antifilter.download/list/subnet.lst" 
     ] # Unpack all addresses with prefixes, deduplicate and merge into newip.txt
     community_domain_sources = [
-        'https://community.antifilter.download/list/domains.lst',
-        'https://raw.githubusercontent.com/1andrevich/Re-filter-lists/main/community.lst'
+        "https://community.antifilter.download/list/domains.lst",
+        "https://raw.githubusercontent.com/1andrevich/Re-filter-lists/main/community.lst"
     ] # Deduplicate and Merge into community.txt
 
 [[extension]]
