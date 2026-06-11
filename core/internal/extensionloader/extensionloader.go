@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 	"zapretyan-go/internal/config"
+	"zapretyan-go/internal/utils"
 	"zapretyan-go/internal/extensionhandler"
 )
 
@@ -59,7 +60,7 @@ func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.Extension
 	}
 
 	// Build OS specific path
-	path := config.GetPathState(config.ExecPath(rawpath))
+	path := utils.GetPathState(utils.ExecPath(rawpath))
 	if !path.Exists {
 		return nil, fmt.Errorf("Plugin %v NOT FOUND in %v", name, path.AbsPath)
 	}

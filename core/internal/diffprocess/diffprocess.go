@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"zapretyan-go/internal/config"
+	"zapretyan-go/internal/utils"
 )
 
 // Struct combines data about additions and deletions arrays for IPs and Domains
@@ -68,7 +69,7 @@ func fileDiff(oldFile, newFile string) DiffResult {
 	}
 
 	// Check if we need to try sort files for this diff
-	if filestate := config.GetPathState(oldFile); !filestate.Exists {
+	if filestate := utils.GetPathState(oldFile); !filestate.Exists {
 		slog.Warn("Old file not found. Diff empty until new rotation arrives.", "file", oldFile)
 		return result
 	}

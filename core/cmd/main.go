@@ -16,6 +16,7 @@ import (
 	"zapretyan-go/internal/flags"
 	"zapretyan-go/internal/logger"
 	"zapretyan-go/internal/sysservice"
+	"zapretyan-go/internal/utils"
 	// DEBUG
 	// "zapretyan-go/internal/pprof"
 )
@@ -36,7 +37,7 @@ func main() {
 		if err := sysservice.Install(); err != nil {
 			slog.Error("Error installing service", "err", err)
 		}
-		config.Pause()
+		utils.Pause()
 		os.Exit(0)
 	}
 	// Check for --uninstall flag
@@ -44,7 +45,7 @@ func main() {
 		if err := sysservice.Uninstall(); err != nil {
 			slog.Error("Error uninstalling service", "err", err)
 		}
-		config.Pause()
+		utils.Pause()
 		os.Exit(0)
 	}
 

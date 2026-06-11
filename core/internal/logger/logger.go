@@ -8,6 +8,7 @@ import (
 
 	"zapretyan-go/internal/config"
 	"zapretyan-go/internal/flags"
+	"zapretyan-go/internal/utils"
 
 	"github.com/lmittmann/tint"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -42,7 +43,7 @@ func SetupLogger() {
 	logger := slog.New(tint.NewHandler(writer, &tint.Options{
 		Level:      level,
 		TimeFormat: "15:04:05",
-		NoColor:    noclr, 		// Color disabled if log to file enabled 
+		NoColor:    noclr, // Color disabled if log to file enabled
 		AddSource:  addsource,
 	}))
 	slog.SetDefault(logger)
@@ -79,7 +80,7 @@ func logRotate(dOutput io.Writer) (io.Writer, bool) {
 	// Create directory if not existing
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		slog.Error("[LOGGER] FATAL: NO PERMISSIONS TO CREATE DIR", "dir", dir, "err", err)
-		config.Pause()
+		utils.Pause()
 		os.Exit(1)
 	}
 

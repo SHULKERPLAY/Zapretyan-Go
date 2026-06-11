@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 	"zapretyan-go/internal/config"
+	"zapretyan-go/internal/utils"
 )
 
 // HasNewerRemoteFiles checks URL array and returns true,
@@ -120,7 +121,7 @@ func IsLocalFileOutdated(fileURL string, localDir string, fileName string) bool 
 	localPath := filepath.Join(localDir, fileName)
 
 	// Check if local file is exsisting
-	localInfo := config.GetPathState(localPath)
+	localInfo := utils.GetPathState(localPath)
 	if !localInfo.Exists {
 		slog.Info("Local file is not found. Downloading required", "file", fileName)
 		return true // If file not exist then it is outdated

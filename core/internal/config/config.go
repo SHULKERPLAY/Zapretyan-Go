@@ -3,13 +3,11 @@ package config
 import (
 	"encoding/json"
 	"log/slog"
-	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"time"
 	"zapretyan-go/internal/flags"
+	"zapretyan-go/internal/utils"
 
 	"github.com/BurntSushi/toml"
 )
@@ -54,33 +52,12 @@ type DataCollection struct {
 	ComDomainSources []string // Downoads all files and merge them in community.txt
 }
 
-// Converts slashes and add .exe suffix on windows if not specified
-func ExecPath(configPath string) string {
-	defer slog.Debug("ExecPath() ended")
-	// Convert slashes to current OS
-	fixedPath := filepath.FromSlash(configPath)
-
-	// If Windows add ".exe" to file or ignore if alredy has executable extension
-	if runtime.GOOS == "windows" {
-		ext := strings.ToLower(filepath.Ext(fixedPath))
-
-		isExec := ext == ".exe" || ext == ".bat" || ext == ".cmd" || ext == ".sh"
-
-		// If it not executable file - force add .exe
-		if !isExec {
-			fixedPath += ".exe"
-		}
-	}
-
-	return fixedPath
-}
-
 func parseConfig() {
 	defer slog.Debug("parseConfig() ended")
 	// Parse config
 	if _, err := toml.DecodeFile(filepath.Join(Params.AppPath, "config.toml"), RawCfg); err != nil {
 		slog.Error("FATAL: Error while parsing config", "err", err)
-		Pause()
+		utils.Pause()
 		os.Exit(1)
 	}
 
@@ -125,21 +102,21 @@ func parseAppConfig() {
 	Params.ReportInterval = ri
 
 	// core.data.data_dir
-	dd := GetPathState(GetStringSafe(cfg, "data.data_dir", "./data"))
+	dd := utils.GetPathState(GetStringSafe(cfg, "data.data_dir", "./data"))
 	if !dd.Exists {
 		slog.Info("Directory not found. Creating new", "dir", dd.AbsPath)
 		err := os.MkdirAll(dd.AbsPath, 0755)
 		if err != nil {
 			slog.Error("FATAL: Cannot create 'core.data.data_dir'", "dir", dd.AbsPath, "err", err)
-			Pause()
+			utils.Pause()
 			os.Exit(1)
 		}
-		dd = GetPathState(dd.AbsPath)
+		dd = utils.GetPathState(dd.AbsPath)
 	}
 
 	if !dd.IsDir {
 		slog.Error("FATAL: 'core.data.data_dir' IS NOT DIRECTORY!", "path", dd.AbsPath)
-		Pause()
+		utils.Pause()
 		os.Exit(1)
 	}
 	DataParams.DataDirectory = dd.AbsPath
@@ -157,7 +134,7 @@ func parseAppConfig() {
 	var validds []string
 	domsource := GetSliceStringSafe(cfg, "data.domain_source", defaultds)
 	for _, ds := range domsource {
-		if !IsValidURL(ds) {
+		if !utils.IsValidURL(ds) {
 			slog.Warn("Invalid URL in 'core.data.domain_source'. Key Dropped", "key", ds)
 			continue
 		}
@@ -183,7 +160,7 @@ func parseAppConfig() {
 		var validips []string
 		ipsource := GetSliceStringSafe(cfg, "data.ip_source", defaultips)
 		for _, ips := range ipsource {
-			if !IsValidURL(ips) {
+			if !utils.IsValidURL(ips) {
 				slog.Warn("Invalid URL in 'core.data.ip_source'. Key Dropped", "key", ips)
 				continue
 			}
@@ -209,7 +186,7 @@ func parseAppConfig() {
 			DataParams.ComDomainSources = []string{}
 			break
 		}
-		if !IsValidURL(cds) {
+		if !utils.IsValidURL(cds) {
 			slog.Warn("Invalid URL in 'core.data.community_domain_sources'. Key Dropped", "key", cds)
 			continue
 		}
@@ -226,76 +203,8 @@ func parseAppConfig() {
 		DataParams.ComDomainSources = validcomds
 	}
 
-	DumpStruct("Global Params State", Params)   // Output for Debug Level
-	DumpStruct("Data Params State", DataParams) // Output for Debug Level
-}
-
-// PathState describe full state of path
-type PathState struct {
-	Exists       bool      // Is exist on disk?
-	IsDir        bool      // Is it Directory?
-	IsFile       bool      // Is it File?
-	IsExecutable bool      // Can we execute it?
-	AbsPath      string    // Normalized absolute Path
-	ModTime      time.Time // Time when file was modified (Use with .UTC())
-}
-
-// GetPathState doing complex validation of pathstring
-func GetPathState(rawPath string) PathState {
-	defer slog.Debug("GetPathState() ended")
-	var state PathState
-
-	// Normalize path (Convert all ./ ../ to real path)
-	abs, err := filepath.Abs(rawPath)
-	if err != nil {
-		// If we cannot get abs path then syntax is broken
-		return state
-	}
-	state.AbsPath = abs
-
-	// Request metadata from OS
-	info, err := os.Stat(abs)
-	if err != nil {
-		// If file not exist - return struct with Exists = false
-		if os.IsNotExist(err) {
-			return state
-		}
-		// Other errors (e.g. Access Denied) means that file exists but we cannot read it
-		return state
-	}
-
-	// If all fine then fill base flags
-	state.Exists = true
-	state.IsDir = info.IsDir()
-	state.IsFile = !info.IsDir()
-
-	// Get last modified date
-	state.ModTime = info.ModTime()
-
-	// Check if executable (Files only)
-	if state.IsFile {
-		if runtime.GOOS == "windows" {
-			// On Windows check file extension
-			ext := strings.ToLower(filepath.Ext(abs))
-			state.IsExecutable = ext == ".exe" || ext == ".bat" || ext == ".cmd" || ext == ".sh"
-		} else {
-			// On Linux/macOS check POSIX rights bits (+x for owner/group/everyone)
-			state.IsExecutable = info.Mode()&0111 != 0
-		}
-	}
-
-	return state
-}
-
-func IsValidURL(s string) bool {
-	defer slog.Debug("IsValidURL() ended")
-	u, err := url.ParseRequestURI(s)
-	slog.Debug("URL Test", "url", s, "scheme", u.Scheme, "err", err)
-	if err != nil {
-		return false // String is not valid URI
-	}
-	// Check that proto is http(s)
-	return u.Scheme == "http" || u.Scheme == "https"
+	utils.DumpStruct("Global Params State", Params)   // Output for Debug Level
+	utils.DumpStruct("Data Params State", DataParams) // Output for Debug Level
 }
 
 // GetBoolSafe returns default value if key is wrong or missing
@@ -395,7 +304,7 @@ func GetAppPath() string {
 	exePath, err := os.Executable()
 	if err != nil {
 		slog.Error("FATAL: Cannot get the executable path", "err", err)
-		Pause()
+		utils.Pause()
 		os.Exit(1)
 	}
 
@@ -403,74 +312,12 @@ func GetAppPath() string {
 	realExePath, err := filepath.EvalSymlinks(exePath)
 	if err != nil {
 		slog.Error("FATAL: Cannot evaluate symlink for executable", "err", err)
-		Pause()
+		utils.Pause()
 		os.Exit(1)
 	}
 
 	// Return directory
 	return filepath.Dir(realExePath)
-}
-
-// Universal Helper for output debug structure in console
-func DumpStruct(title string, v interface{}) {
-	defer slog.Debug("DumpStruct() ended")
-	slog.Debug("--- [DEBUG DUMP] ---", "name", title)
-
-	// Protection: If nil pointer output nil for debug
-	if v == nil {
-		slog.Debug("<nil> (Structure not initialized)")
-		return
-	}
-
-	bytes, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		slog.Debug("ERROR formatting JSON", "err", err)
-		return
-	}
-	slog.Debug(string(bytes))
-	slog.Debug("--- [END OF DUMP] ---")
-}
-
-// Output memory info in log with specified delay in seconds. 
-// Boolean gc decides whether to start GC before delay.
-// gcDelay int specifies delay before starting GC. gcDelay also increases memory info log output delay.
-// It is recomended to start from goroutine. It is recomended to start GC ONLY IF ALL ACTIVE OPERATIONS WAS COMPLETED!
-func DumpMemoryStatistics(delay int, gc bool, gcDelay int) {
-	// Start GC?
-	if gc {
-		// Delay to start GC
-		if gcDelay >= 1 {
-			time.Sleep(time.Duration(gcDelay) * time.Second) // Sleep n Seconds before start GC
-		}
-		runtime.GC()
-	}
-	// Delay of data after GC step
-	if delay >= 1 {
-		time.Sleep(time.Duration(delay) * time.Second) // Sleep n Seconds before output statistics
-	}
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	slog.Debug("--- [MEMSTAT] ---")
-	slog.Debug("Live memory on heap", "(KB)", m.Alloc / 1024)
-	slog.Debug("Total handling by GO runtime", "(KB)", m.Sys / 1024)
-	slog.Debug("Allocated from total for goroutine stacks", "(KB)", m.StackInuse / 1024)
-	slog.Debug("Cleaned by GC, but not returned for OS", "(KB)", m.HeapReleased / 1024)
-	slog.Debug("--- [END OF MEMSTAT] ---")
-}
-
-// Helper to stop execution until user press enter.
-// Created for users to catch up with logs in ui while app is closing.
-// e.g. on windows if core not started from cmd window will quickly close on app exit
-// and user do not catch with log reading.
-// Pauses are ignored in system service mode!
-func Pause() {
-	if !flags.Args.Service {
-		slog.Warn("Press enter to continue...")
-		// Read one byte from stdin (this is enough to block the flow)
-		var b [1]byte
-		os.Stdin.Read(b[:])
-	}
 }
 
 func InitConfig() {
@@ -494,7 +341,7 @@ func InitConfig() {
 	// Change dir to this app
 	if err := os.Chdir(Params.AppPath); err != nil {
 		slog.Error("FATAL: Cannot change work directory to", "dir", Params.AppPath)
-		Pause()
+		utils.Pause()
 		os.Exit(1)
 	}
 
@@ -507,7 +354,7 @@ func InitConfig() {
 
 	if Params.ExtOnceCtxTimeout > Params.ReportInterval * 3600 {
 		slog.Error("FATAL: 'once_ctx_deadline' CANNOT BE LONGER THAN 'report_interval'! PLEASE CHECK YOUR config.toml", "once_ctx_deadline_sec", Params.ExtOnceCtxTimeout, "report_interval_sec", Params.ReportInterval * 3600)
-		Pause()
+		utils.Pause()
 		os.Exit(1)
 	}
 }

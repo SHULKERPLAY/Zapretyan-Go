@@ -12,6 +12,7 @@ import (
 	"zapretyan-go/internal/downloader"
 	"zapretyan-go/internal/eventor"
 	"zapretyan-go/internal/hasher"
+	"zapretyan-go/internal/utils"
 )
 
 // Define filenames
@@ -38,7 +39,7 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 	// First start of scan logic
 	slog.Info("Scanning for new changes...")
 	scan(ctx)
-	go config.DumpMemoryStatistics(60, true, 5)
+	go utils.DumpMemoryStatistics(60, true, 5)
 
 	for {
 		select {
@@ -46,7 +47,7 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 			// Scan logic
 			slog.Info("Scanning for new changes...")
 			scan(ctx)
-			go config.DumpMemoryStatistics(60, true, 5)
+			go utils.DumpMemoryStatistics(60, true, 5)
 
 		case <-ctx.Done():
 			// Graceful shutdown
@@ -125,7 +126,7 @@ func scan(ctx context.Context) {
 	eventor.CreateRknEvent(ctx, diffs, dpath, ipath)
 
 	slog.Info("Scan completed!")
-	config.DumpMemoryStatistics(0, false, 0)
+	utils.DumpMemoryStatistics(0, false, 0)
 }
 
 // Check which lists has updates. True means need to check difference
@@ -172,7 +173,7 @@ func checkUpdates(localPath string, sources []string) bool {
 	defer slog.Debug("checkUpdates() ended")
 
 	// Check if local file is exsisting
-	localInfo := config.GetPathState(localPath)
+	localInfo := utils.GetPathState(localPath)
 	var localTime time.Time
 	if localInfo.Exists {
 		localTime = localInfo.ModTime
@@ -200,7 +201,7 @@ func hashcheck(newTxt, newIpTxt, communityTxt, newTmp, newIpTmp, communityTmp st
 	// If not false then mode enabled, download and merge of files was successful
 	// If domain list enabled
 	if isDomain {
-		if probe := config.GetPathState(newTxt); !probe.Exists {
+		if probe := utils.GetPathState(newTxt); !probe.Exists {
 			slog.Info("No latest domain file found. Allowing to rotate.")
 			domainState = true
 		} else {
@@ -216,7 +217,7 @@ func hashcheck(newTxt, newIpTxt, communityTxt, newTmp, newIpTmp, communityTmp st
 	}
 	// If ip list enabled
 	if isIp {
-		if probe := config.GetPathState(newIpTxt); !probe.Exists {
+		if probe := utils.GetPathState(newIpTxt); !probe.Exists {
 			slog.Info("No latest IP file found. Allowing to rotate.")
 			ipState = true
 		} else {
@@ -230,7 +231,7 @@ func hashcheck(newTxt, newIpTxt, communityTxt, newTmp, newIpTmp, communityTmp st
 	}
 	// If community list enabled
 	if isCommunity {
-		if probe := config.GetPathState(newIpTxt); !probe.Exists {
+		if probe := utils.GetPathState(newIpTxt); !probe.Exists {
 			slog.Info("No latest community file found. Allowing to rotate.")
 			communityState = true
 		} else {
