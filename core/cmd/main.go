@@ -17,20 +17,30 @@ import (
 	"zapretyan-go/internal/logger"
 	"zapretyan-go/internal/sysservice"
 	"zapretyan-go/internal/utils"
+	"zapretyan-go/internal/sysinfo"
 	// DEBUG
 	// "zapretyan-go/internal/pprof"
 )
+
+const appVersion   string = "2.1.0.0" // App version
+const jsonProtoVer int    = 1 		  // Version of JSON message payload
 
 func main() {
 	// DEBUG. CMD: "go tool pprof -http=:8081 http://localhost:8080/debug/pprof/heap"
 	// Or browse http://localhost:8080/debug/pprof/goroutine?debug=1
 	// go pprof.PprofStart()
 
+	// Send start log with system info
+	sysinfo.SendLogBanner(appVersion, jsonProtoVer)
+
 	// Start logger and parse flags
 	logger.SetupLogger()
 
 	// Load Configuration
 	config.InitConfig()
+	// Set properties
+	config.Params.Ver = appVersion
+	config.Params.JsonVer = jsonProtoVer
 
 	// Check for --install flag
 	if flags.Args.Install {
@@ -48,11 +58,6 @@ func main() {
 		utils.Pause()
 		os.Exit(0)
 	}
-
-	// Default params
-	config.Params.Ver = "2.1.0.0"
-	// Version of JSON message payload
-	config.Params.JsonVer = 1
 
 	// Load configured extensions
 	extensionloader.InitExtensions()
