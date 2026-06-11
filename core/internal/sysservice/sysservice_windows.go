@@ -19,6 +19,40 @@ import (
 	"golang.org/x/sys/windows/svc"
 )
 
+// RunAsAdmin restarts current process with admin access on windows
+func RunAsAdmin() error {
+	slog.Warn("RESTARTING APP AS ADMIN WITH UAC REQUEST")
+	// Get absolute path to current executable
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	// Pass all arguments to new process (e.g. --run or --install)
+	args := strings.Join(os.Args[1:], " ")
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = ""
+	}
+
+	// Convert strings info UTF-16 which required for Windows API
+	verbPtr, _ := syscall.UTF16PtrFromString("runas") // "runas" activating UAC request
+	exePtr, _ := syscall.UTF16PtrFromString(exe)
+	argsPtr, _ := syscall.UTF16PtrFromString(args)
+	cwdPtr, _ := syscall.UTF16PtrFromString(cwd)
+
+	// Call ShellExecuteW
+	err = windows.ShellExecute(0, verbPtr, exePtr, argsPtr, cwdPtr, windows.SW_NORMAL)
+	if err != nil {
+		return err
+	}
+
+	// Successfuly started copy as admin. Close current process
+	os.Exit(0)
+	return nil
+}
+
 func getPrivilegeError() error {
 	return errors.New("error: Administrator rights required. Start console as Administrator")
 }

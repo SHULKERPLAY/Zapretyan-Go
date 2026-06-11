@@ -36,6 +36,12 @@ func ParseFlags() {
 	flag.Parse()
 
 	// Flags override
+	if Args.Install {
+		Args.LogNoclr = true
+	}
+	if Args.Uninstall {
+		Args.LogNoclr = true
+	}
 	if Args.Service {
 		Args.LogFile = true
 		Args.LogNoclr = true

@@ -362,3 +362,7 @@ func runService(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGro
 	_ = cancel
 	wg.Done()
 } // No additional actions required for linux build
+
+func RunAsAdmin() error {
+	return errors.New("RunAsAdmin() available only in Windows build")
+}

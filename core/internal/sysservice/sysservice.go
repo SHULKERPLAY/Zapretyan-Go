@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 )
 
@@ -32,6 +33,9 @@ func Install() error {
 		return err
 	}
 	if !hasPerm {
+		if runtime.GOOS == "windows" { 
+			RunAsAdmin()
+		}
 		return getPrivilegeError()
 	}
 	return installService()
@@ -44,6 +48,9 @@ func Uninstall() error {
 		return err
 	}
 	if !hasPerm {
+		if runtime.GOOS == "windows" { 
+			RunAsAdmin()
+		}
 		return getPrivilegeError()
 	}
 	return uninstallService()
