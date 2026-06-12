@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 	"zapretyan-go/internal/config"
-	"zapretyan-go/internal/utils"
 	"zapretyan-go/internal/extensionhandler"
+	"zapretyan-go/internal/utils"
 )
 
 // Handshake is expecting answer from extension on start
@@ -170,6 +171,13 @@ func InitExtensions() {
 			slog.Warn("SKIP EXTENSION", "name", name, "reason", err)
 			continue
 		}
+		for i, ext := range extensionhandler.ValidExtensions {
+			if extState.Name == ext.Name {
+				slog.Error("FATAL: Plugin names must be unique! Fix it in config.toml", "q", i, "conflict_1", extState.Path, "conflict_2", ext.Path)
+				utils.Pause()
+				os.Exit(1)
+			}
+		}
 		extensionhandler.ValidExtensions = append(extensionhandler.ValidExtensions, extState)
 	}
 
@@ -177,5 +185,6 @@ func InitExtensions() {
 		slog.Warn("NO EXTENSIONS STARTED! CORE WILL NOT CREATE ANY EVENTS")
 	} else {
 		slog.Info("Extension initialize completed", "valid_count", len(extensionhandler.ValidExtensions))
+		slog.Info("Current loaded", "extensions", extensionhandler.GetExtensionsListString())
 	}
 }

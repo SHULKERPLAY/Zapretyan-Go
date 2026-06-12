@@ -7,24 +7,24 @@ import (
 	"io"
 	"log/slog"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 	"zapretyan-go/internal/config"
 )
 
 type ExtensionState struct {
-	Name string
-	Path string
-	Mode string
+	Name string // Plugin name
+	Path string // Path to plugin executable
+	Mode string // Plugin execution mode
 
-	// Extension config
+	// Raw extension config
 	Config map[string]interface{}
 
-	// Runtime
-	State  *exec.Cmd
-	Stdout io.ReadCloser
-	Stdin  io.WriteCloser
-	Stderr io.ReadCloser
+	State  *exec.Cmd      // Child Process runtime
+	Stdout io.ReadCloser  // STDOUT pipe of child process
+	Stdin  io.WriteCloser // STDIN pipe of child process
+	Stderr io.ReadCloser  // STDERR pipe of child process
 }
 
 // Commands to kill or to send plugin configuration.
@@ -46,13 +46,29 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 	defer wg.Done()
 	defer slog.Debug("superviseStream() ended", "extension", ext.Name)
 
+	// Start attempts counter
+	var startRetries int 
+
 	// Return from loop only if core context was closed
 	for {
+		// Increment start attempts counter
+		startRetries++
+
 		// If extension was killed by end of context - Not restarting it
 		if ctx.Err() != nil {
 			return
 		}
 
+		// If extension restarting 10 times then we need to disable it
+		if startRetries > 10 {
+			slog.Error("To many crashes of extension", "name", ext.Name)
+			DisableExtension(ext.Name)
+			return
+		} else {
+			slog.Info("Starting extension", "name", ext.Name, "try", startRetries)
+		}
+
+		// Start child process
 		cmd := exec.Command(ext.Path)
 
 		// Put process state in struct
@@ -118,7 +134,7 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 				Path: config.DataParams.DataDirectory,
 				Cfg:  make(map[string]interface{}),
 			})
-
+			// Wait for process to close itself for 5s else send SIGKILL
 			select {
 			case <-done:
 				slog.Info("Extension successfuly stopped", "name", ext.Name)
@@ -137,6 +153,7 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 	}
 }
 
+// Start all extensions with type `STREAM` before first scan
 func StartSteamExtensions(ctx context.Context, globalWg *sync.WaitGroup) {
 	defer globalWg.Done() // When all local workgroups has stopped we send wg.Done() to top function
 	defer slog.Debug("StartSteamExtensions() ended")
@@ -165,7 +182,11 @@ func StartSteamExtensions(ctx context.Context, globalWg *sync.WaitGroup) {
 
 	// Wait until all plugins stop
 	localWg.Wait()
-	slog.Info("All extensions stopped.")
+	if ctx.Err() != nil {
+		slog.Info("All extensions stopped.")
+	} else {
+		slog.Error("All STREAM extensions has stopped!")
+	}
 }
 
 // RunOnceExtension starts extension with mode ONCE and force kills it if timeout is reached.
@@ -289,4 +310,44 @@ func RunOnceExtension(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionSta
 	case <-done:
 		slog.Info("Extension successfuly closed", "name", ext.Name)
 	}
+}
+
+// Removes extension by its name from ValidExtensions array preventing it from starting.
+// Replaces requested extension with last from array and removing last index
+func DisableExtension(name string) {
+	for i, ext := range ValidExtensions {
+		if ext.Name == name {
+			// Replace removing element with last object of slice
+			ValidExtensions[i] = ValidExtensions[len(ValidExtensions)-1]
+
+			// Clear last object to delete it by GC
+			ValidExtensions[len(ValidExtensions)-1] = nil
+
+			// Cut last (already empty) index of slice
+			ValidExtensions = ValidExtensions[:len(ValidExtensions)-1]
+
+			slog.Error("Extension was removed from core until next start", "name", name)
+			slog.Info("Current started", "extensions", GetExtensionsListString())
+			return // Return as we need to remove only one matching element
+		}
+	}
+}
+
+// Return string with names of all started extensions separated by ", "
+func GetExtensionsListString() string {
+	// Return if no extensions started
+	if len(ValidExtensions) < 1 {
+		return "No any extensions started"
+	}
+
+	// Create slice of strings with preallocated memory depend on extension count
+	names := make([]string, len(ValidExtensions))
+
+	// Collect Names in created array
+	for i, ext := range ValidExtensions {
+		names[i] = ext.Name
+	}
+
+	// Merge array in one string with separator
+	return strings.Join(names, ", ")
 }
