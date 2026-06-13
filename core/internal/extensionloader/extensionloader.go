@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 	"zapretyan-go/internal/config"
@@ -73,7 +72,7 @@ func verifyExtension(rawCfg map[string]interface{}) (*extensionhandler.Extension
 	}
 
 	// Start process to validate
-	cmd := exec.Command(path.AbsPath)
+	cmd := utils.ExecuteOS(path.AbsPath)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err

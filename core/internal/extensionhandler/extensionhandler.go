@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 	"zapretyan-go/internal/config"
+	"zapretyan-go/internal/utils"
 )
 
 type ExtensionState struct {
@@ -68,8 +69,8 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 			slog.Info("Starting extension", "name", ext.Name, "try", startRetries)
 		}
 
-		// Start child process
-		cmd := exec.Command(ext.Path)
+		// Define child process
+		cmd := utils.ExecuteOS(ext.Path)
 
 		// Put process state in struct
 		ext.State = cmd
@@ -82,6 +83,7 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 		// Init stdin
 		ext.Stdin, _ = cmd.StdinPipe()
 
+		// Start child process
 		if err := cmd.Start(); err != nil {
 			slog.Error("Failed to start STREAM extension", "name", ext.Name, "err", err)
 			time.Sleep(5 * time.Second) // Restart delay
@@ -205,7 +207,7 @@ func RunOnceExtension(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionSta
 	localCtx, cancel := context.WithTimeout(ctx, time.Duration(config.Params.ExtOnceCtxTimeout-10)*time.Second)
 	defer cancel() // Clean resources
 
-	ext.State = exec.Command(ext.Path)
+	ext.State = utils.ExecuteOS(ext.Path)
 
 	// in and out streams to extension struct
 	// Catch data from stdout

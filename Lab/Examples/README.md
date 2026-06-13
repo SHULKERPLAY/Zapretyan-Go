@@ -76,6 +76,10 @@ enabled = true
 #!/bin/bash
 #./extensions/myplugin.sh
 
+# Переходим в папку, где лежит этот bash-файл (Если нужно)
+bashdir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+cd $bashdir
+
 # Вызов вашего плагина
 ./myplugin -arg1 --arg2
 ```

@@ -5,12 +5,34 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 	"zapretyan-go/internal/flags"
 )
+
+// Define child process with path to executable. Returns *exec.Cmd
+// On linux just creating executable state and returns it.
+// On windows starting .exe file directly and Terminal files with CMD
+func ExecuteOS(path string) *exec.Cmd {
+	// Predefine variable
+	var cmd *exec.Cmd
+
+	// Execute batch files with Windows Terminal
+	if runtime.GOOS == "windows" {
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext == ".bat" || ext == ".cmd" || ext == ".sh" { 
+			cmd = exec.Command("cmd", "/c", path)
+			return cmd
+		}
+	}
+
+	// Default case
+	cmd = exec.Command(path)
+	return cmd
+}
 
 // Converts slashes and add .exe suffix on windows if not specified
 func ExecPath(configPath string) string {
