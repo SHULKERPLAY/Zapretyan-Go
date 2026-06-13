@@ -97,9 +97,52 @@ func ListDownloadAndMerge(ctx context.Context, urls []string, targetDir, finalTm
 				continue
 			}
 
+			// Quick extract domain from HTTP/HTTPS URL
+			if (lists == "domain" || lists == "community") && (strings.HasPrefix(line, "http://") || strings.HasPrefix(line, "https://")) {
+				// Find host start after the "://"
+				startIdx := strings.Index(line, "://") + 3
+				hostPart := line[startIdx:]
+
+				// Cut path, queries and anchors
+				if idx := strings.IndexAny(hostPart, "/?#"); idx != -1 {
+					hostPart = hostPart[:idx]
+				}
+
+				// Cut authorization data (user:pass@)
+				if idx := strings.IndexByte(hostPart, '@'); idx != -1 {
+					hostPart = hostPart[idx+1:]
+				}
+
+				// Cut port with preserving IPv6 specific []
+				if strings.HasPrefix(hostPart, "[") { // This is IPv6 address
+					if idx := strings.IndexByte(hostPart, ']'); idx != -1 {
+						hostPart = hostPart[1:idx] // Take only what inside []
+					}
+				} else { // Domain or IPv4
+					if idx := strings.IndexByte(hostPart, ':'); idx != -1 {
+						hostPart = hostPart[:idx]
+					}
+				}
+
+				// If after cleanup host not empty then we replace source string
+				if hostPart != "" {
+					line = hostPart
+				} else {
+					continue // If it was bad URL and host empty then skip it
+				}
+			}
+
 			// If we in IP mode then searching and unpacking CIDRs on the fly
 			if lists == "ip" && strings.ContainsRune(line, '/') {
 				if prefix, err := netip.ParsePrefix(line); err == nil {
+					// If subnet prefix less than 12 (/8, /10 etc.).
+					// Skip it as large subnet to not hang core on unpacking millions of addresses.
+					if prefix.Bits() < 12 {
+						slog.Warn("Skipping extremely large subnet to prevent memory/disk overflow", "cidr", line)
+						continue
+					}
+
+					// Predefine first address from CIDR
 					addr := prefix.Addr()
 					for prefix.Contains(addr) {
 						// Add single IP
