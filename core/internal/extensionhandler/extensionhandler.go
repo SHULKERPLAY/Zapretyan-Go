@@ -65,9 +65,9 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 			slog.Error("To many crashes of extension", "name", ext.Name)
 			DisableExtension(ext.Name)
 			return
-		} else {
-			slog.Info("Starting extension", "name", ext.Name, "try", startRetries)
 		}
+		
+		slog.Info("Starting extension", "name", ext.Name, "try", startRetries)
 
 		// Define child process
 		cmd := utils.ExecuteOS(ext.Path)
