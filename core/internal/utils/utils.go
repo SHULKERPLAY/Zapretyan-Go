@@ -13,10 +13,31 @@ import (
 	"zapretyan-go/internal/flags"
 )
 
+// UpdateModTime force changing Last Opened and Last Modified 
+// properties of file to current system time.
+func UpdateModTime(filePath string) error {
+	slog.Debug("UpdateModTime() ended")
+	// Get current system time
+	currentTime := time.Now()
+
+	// os.Chtimes Accepts:
+	// Path to file (string)
+	// Last Opened time (Atime)
+	// Last modified time (Mtime)
+	// Change both params to current time without opening file
+	err := os.Chtimes(filePath, currentTime, currentTime)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Define child process with path to executable. Returns *exec.Cmd
 // On linux just creating executable state and returns it.
 // On windows starting .exe file directly and Terminal files with CMD
 func ExecuteOS(path string) *exec.Cmd {
+	slog.Debug("ExecuteOS() ended")
 	// Predefine variable
 	var cmd *exec.Cmd
 

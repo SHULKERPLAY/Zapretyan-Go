@@ -365,7 +365,18 @@ func RotateFiles(newTxt, newIpTxt, communityTxt, newTmp, newIpTmp, communityTmp,
 		if err := RenameIfExists(newTmp, newTxt); err != nil {
 			slog.Error("Error activating main file", "from", newTmp, "to", newTxt, "err", err)
 		}
+	} else {
+		// If rotation not performed because no changes but files was downloaded in "http" mode
+		// because server updated its Last-Modified tag without modifying contents then file will be
+		// redownloaded every scan even if Last-Modified timestamp on server did not changed anymore.
+		// If no rotation then modtime of local files still stays untouched and core counting them
+		// as outdated.
+
+		// This function force changes modtime of local files to not redownload files every time
+		// if server changed Last-Modified header before without modifying file contents.
+		utils.UpdateModTime(newTxt)
 	}
+
 	// If ips are successfuly downloaded and has changes
 	if isIp {
 		if err := RenameIfExists(newIpTxt, oldIpTxt); err != nil {
@@ -374,12 +385,17 @@ func RotateFiles(newTxt, newIpTxt, communityTxt, newTmp, newIpTmp, communityTmp,
 		if err := RenameIfExists(newIpTmp, newIpTxt); err != nil {
 			slog.Error("Error activating main file", "from", newIpTmp, "to", newIpTxt, "err", err)
 		}
+	} else {
+		utils.UpdateModTime(newIpTxt)
 	}
 
+	// If community domains are successfuly downloaded and has changes
 	if isCommunity {
 		if err := RenameIfExists(communityTmp, communityTxt); err != nil {
 			slog.Error("Error activating main file", "from", communityTmp, "to", communityTxt, "err", err)
 		}
+	} else {
+		utils.UpdateModTime(communityTxt)
 	}
 
 	slog.Info("File rotation completed")
