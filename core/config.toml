@@ -26,14 +26,15 @@ name = "Discord Sender"
 desc = "Send new changes as embeds using your Discord-Bot"
 source = "https://github.com/SHULKERPLAY/Zapretyan-Go"
 path = "./extensions/discord-sender"
-enabled = true
+enabled = false
 BOT_TOKEN = ""
 # Enable message types
 isban = true     # Send Banned Domains
 isunban = true   # Send Unbanned Domains
 isbanip = true   # Send Banned IP's
 isunbanip = true # Send Banned IP's
-istotal = true   # Send total statistics (dailystat extension with "latestjson = true" required)
+istotal = true   # Send total statistics ("Daily Statistics" extension with "latestjson = true" required)
+total_json_path = "./statistics/latest.json" # Path to "Daily Statistics" JSON file
 #Chat id's to send lists
 bancid = ""     # ChannelID: Today Banned Domains
 unbancid = ""   # ChannelID: Today Unbanned Domains
@@ -78,10 +79,14 @@ localfs_dir = "localfs_logger" # Directory inside data folder
 
 [[extension]]
 name = "Daily Statistics"
-desc = "Write daily statistics to today's JSON and historical CSV in Data folder"
+desc = "Write daily statistics to today's JSON and historical CSV"
 source = "https://github.com/SHULKERPLAY/Zapretyan-Go"
 path = "./extensions/dailystat"
 enabled = false
-latestjson = true      # Enable JSON with last day data about ban counters 
-analytics = true       # Enable bans data collecting in analytics.csv
-day_start = "00:00:00" # Local time write daily stats and reset daily counters
+latestjson = false                        # Enable JSON with last day data about ban counters
+json_file = "./statistics/latest.json"    # Path to JSON relative to core data folder
+analytics = true                          # Enable bans data collecting in analytics.csv
+csv_file = "./statistics/analyticsV2.csv" # Path to CSV relative to core data folder
+day_start = 0                             # Hour after which daily stats will be written daily counters reset to zero (0 to 23)
+    [extension.locale]
+    for24hrs = "за 24 часа"

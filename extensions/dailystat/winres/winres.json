@@ -1,0 +1,53 @@
+{
+  "RT_MANIFEST": {
+    "#1": {
+      "0409": {
+        "description": "Official external plugin for Zapretyan-Go",
+        "minimum-os": "win7",
+        "execution-level": "as invoker",
+        "ui-access": false,
+        "auto-elevate": false,
+        "dpi-awareness": "system",
+        "disable-theming": false,
+        "disable-window-filtering": false,
+        "high-resolution-scrolling-aware": false,
+        "ultra-high-resolution-scrolling-aware": false,
+        "long-path-aware": true,
+        "printer-driver-isolation": false,
+        "gdi-scaling": false,
+        "segment-heap": false,
+        "use-common-controls-v6": true,
+        "identity": {
+          "name": "shulkerplay.ZapretyanGoDailyStatistics",
+          "version": "1.0.0"
+        }
+      }
+    }
+  },
+  "RT_VERSION": {
+    "#1": {
+      "0000": {
+        "fixed": {
+          "file_version": "1.0.0",
+          "product_version": "1.0.0"
+        },
+        "info": {
+          "0409": {
+            "FileVersion": "v1.0.0",
+            "ProductVersion": "v1.0.0",
+            "Comments": "Built by GitHub Actions",
+            "CompanyName": "SHULKERPLAY",
+            "FileDescription": "Zapretyan-Go Daily Statistics Plugin",
+            "InternalName": "dailystat.exe",
+            "LegalCopyright": "© 2026 Aleksandr Volkhin. All rights reserved.",
+            "LegalTrademarks": "",
+            "OriginalFilename": "dailystat.exe",
+            "PrivateBuild": "",
+            "ProductName": "Zapretyan-Go Daily Statistics Plugin",
+            "SpecialBuild": ""
+          }
+        }
+      }
+    }
+  }
+}

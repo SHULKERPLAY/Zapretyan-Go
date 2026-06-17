@@ -24,8 +24,8 @@
         Записывает JSON полученного события на диск в .txt расширении
         <li><a style="color: orange;">⏳ DiscordSender</a></li>
         В разработке. Повторяет логику оригинальной Запретян в новой форме, присылая уведомления сразу при наличии изменений
-        <li><a style="color: orange;">⏳ AnalyticsV2</a></li>
-        В разработке. Повторяет функцию аналитики оригинальной Запретян. Генерирует один ежедневный JSON и собирает аналитику в CSV таблицу
+        <li><a href="https://github.com/SHULKERPLAY/Zapretyan-Go/tree/main/extensions/dailystat" style="color: lightgreen;">✅ Daily Statistics</a></li>
+        Повторяет функцию аналитики оригинальной Запретян. Генерирует один ежедневный JSON и собирает аналитику в CSV таблицу
         <li><a style="color: orange;">⏳ DiscordOnline</a></li>
         В разработке. Повторяет функцию оригинальной Запретян, позволяя вашему Discord боту всегда оставаться в сети, пока ядро Запретян Go запущено
         <li><a style="color: orange;">⏳ WebhookSender</a></li>

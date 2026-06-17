@@ -1,4 +1,4 @@
-# ![](https://github.com/SHULKERPLAY/Zapretyan-Go/blob/main/core/winres/ico32.png) Zapretyan-Go \\=> localfs 1.1 (Официальный плагин)
+# ![](https://github.com/SHULKERPLAY/Zapretyan-Go/blob/main/core/winres/ico32.png) Zapretyan-Go \\=> localfs 1.0.1 (Официальный плагин)
 
 ## Назначение
 Записывает каждое полученное от ядра событие типа `"type": "rkn"` в файл как читаемый JSON с `.txt` расширением
@@ -37,7 +37,7 @@ localfs_dir = "localfs_logger"
   ```
 
 ## Список изменений
-### v1.1.0
+### v1.0.1
 - Оптимизация использования ОЗУ путём назначения строгого размера буфера
 ### v1.0
 - Первая сборка
