@@ -28,45 +28,52 @@ source = "https://github.com/SHULKERPLAY/Zapretyan-Go"
 path = "./extensions/discord-sender"
 enabled = false
 BOT_TOKEN = ""
-# Enable message types
+
+[extension.sender] # Enable message types
 isban = true     # Send Banned Domains
 isunban = true   # Send Unbanned Domains
-isbanip = true   # Send Banned IP's
-isunbanip = true # Send Banned IP's
+isbanip = true   # Send Banned IP's (mmdb country and asn databases required)
+isunbanip = true # Send Banned IP's (mmdb country and asn databases required)
 istotal = true   # Send total statistics ("Daily Statistics" extension with "latestjson = true" required)
-total_json_path = "./statistics/latest.json" # Path to "Daily Statistics" JSON file
-#Chat id's to send lists
+
+[extension.data] # Data sources for send
+mmdb_update = true                             # Check updates and update databases if file >45 days old (updates from db-ip.com)
+mmdb_lang = "ru"                               # Supported langs with db-ip: "de", "en", "es", "fa", "fr", "ja", "ko", "pt-BR", "ru", "zh-CN"
+mmdbasn_path = "./dissender/dbip-asn.mmdb"     # Path to mmdb ASN database
+mmdbcountry_path = "./dissender/dbip-asn.mmdb" # Path to mmdb Country database
+total_json_path = "./statistics/latest.json"   # Path to "Daily Statistics" JSON file
+
+[extension.channels] #Chat id's to send lists
 bancid = ""     # ChannelID: Today Banned Domains
 unbancid = ""   # ChannelID: Today Unbanned Domains
-banipcid = ""   # ChannelID: Today Banned IP's
-unbanipcid = "" # ChannelID: Today Unbanned IP's
+banipcid = ""   # ChannelID: Today Banned IP's (mmdb country and asn databases required)
+unbanipcid = "" # ChannelID: Today Unbanned IP's (mmdb country and asn databases required)
 totalcid = ""   # ChannelID: Daily and total Statistics (dailystat extension with "latestjson = true" required)
-    [extension.override]
-    iconurl = "https://lunarcreators.ru/wp-content/uploads/2025/11/discordiconmini.webp"
-    embed_author_name = "Запретян <3"
-    embed_author_url = "https://discord.com/discovery/applications/907372459144147035"
-    # Embed colors (e.g HEX_COLOR)
-    banclr = "ff5e5e"
-    unbanclr = "5e87ff"
-    banipclr = "ffa45e"
-    unbanipclr = "5effac"
-    totalclr = "ffff7d"
-        [extension.override.locale]
-        stats_date = "📌 Статистика за "
-        stats_domains = "ДОМЕНЫ"
-        stats_ips = "IP АДРЕСА"
-        stats_past24h = "за прошедшие сутки"
-        today_banned = "Сегодня заблокировано"
-        today_unbanned = "Сегодня разблокировано"
-        total_banned = "Всего заблокировано"
-        domains_newbanned = "В список ограниченных ресурсов добавили:"
-        domains_banned = "Заблокировано доменов"
-        domains_newunbanned = "Из реестра удалены ресурсы:"
-        domains_unbanned = "Разблокировано доменов"
-        ip_newbanned = "В реестр добавили IP адреса:"
-        ip_banned = "Заблокировано IP адресов"
-        ip_newunbanned = "Из реестра удалены IP адреса:"
-        ip_unbanned = "Разблокировано IP адресов"
+
+[extension.embed] # Override internal embed states
+iconurl = "https://lunarcreators.ru/wp-content/uploads/2025/11/discordiconmini.webp"
+embed_author_name = "Запретян-Go <3"
+embed_author_url = "https://discord.com/discovery/applications/907372459144147035"
+# Embed colors (HEX e.g. 0fafff)
+banclr = "ff5e5e"
+unbanclr = "5e87ff"
+banipclr = "ffa45e"
+unbanipclr = "5effac"
+totalclr = "ffff7d"
+
+[extension.locale] # Override output messages text
+stats_date = "Статистика за" # ...26/06/2026
+domains = "Домены"
+ips = "IP Адреса"
+today_banned = "Сегодня заблокировано"
+today_unbanned = "Сегодня разблокировано"
+total_banned = "Всего заблокировано"
+newbanned = "В реестр Роскомнадзора добавлены"
+banned = "Добавлено записей"
+newunbanned = "Из реестра Роскомнадзора удалены"
+unbanned = "Удалено записей"
+top_country = "Топ стран"
+top_isp = "Топ провайдеров"
 
 [[extension]]
 name = "File Logger"
