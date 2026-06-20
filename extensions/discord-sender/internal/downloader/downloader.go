@@ -2,9 +2,9 @@ package downloader
 
 import (
 	"context"
+	"discord-sender/internal/util"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,8 +13,6 @@ import (
 
 // Downloads file from URL and store it in specified destPath with retries
 func DownloadFile(ctx context.Context, url string, destPath string) error {
-	defer slog.Debug("DownloadFile() ended")
-
 	// Automaticly create folders if they not exist
 	dir := filepath.Dir(destPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -32,7 +30,7 @@ func DownloadFile(ctx context.Context, url string, destPath string) error {
 		}
 
 		if attempt > 1 {
-			slog.Warn("Retrying to download file...", "attempt", attempt)
+			util.LogMsg("Retrying to download file %d/%d...", attempt, maxAttempts)
 			
 			// Wait before next retry with context support
 			select {
@@ -44,16 +42,16 @@ func DownloadFile(ctx context.Context, url string, destPath string) error {
 			}
 		}
 
-		slog.Info("Started download", "from", url, "attempt", attempt)
+		util.LogMsg("Started download (%s)", url)
 
 		// Call attempt function
 		lastErr = doDownloadAttempt(ctx, url, destPath)
 		if lastErr == nil {
-			slog.Info("File downloaded successfully", "path", destPath)
+			util.LogMsg("File downloaded successfully")
 			return nil
 		}
 
-		slog.Error("Error trying to download", "attempt", attempt, "err", lastErr)
+		util.LogMsg("Error trying to download '%s': %v", url, lastErr)
 		
 		// Clear corrupted file to restart
 		_ = os.Remove(destPath)

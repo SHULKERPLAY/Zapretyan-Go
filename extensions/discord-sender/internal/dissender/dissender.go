@@ -1,6 +1,7 @@
 package dissender
 
 import (
+	"context"
 	"discord-sender/internal/cfg"
 	"discord-sender/internal/geomanager"
 	"discord-sender/internal/util"
@@ -26,7 +27,7 @@ func SendEvent(client bot.Client, channelID snowflake.ID, content string, embeds
 
 	// Cut content if more than 1900 characters
 	if len(content) > 1900 {
-		content = content[:1900] + "\n......"
+		content = content[:1900] + "\n..."
 	}
 
 	// Initialize message flags
@@ -49,7 +50,8 @@ func SendEvent(client bot.Client, channelID snowflake.ID, content string, embeds
 		return false
 	}
 
-	// Лимит: полсекунды между каждым сообщением
+	// Sleep 500ms after each message
+	util.LogMsg("Message sent in '%v'", channelID)
 	time.Sleep(500 * time.Millisecond)
 	return true
 }
@@ -59,7 +61,7 @@ func SendEvent(client bot.Client, channelID snowflake.ID, content string, embeds
 func CreateEmbed(title, data, footer string, color int, authorName, authorIcon, authorLink string, timestamp bool) discord.Embed {
 	// Cut description if more than 3900 characters
 	if len(data) > 3900 {
-		data = data[:3900] + "\n......"
+		data = data[:3900] + "\n..."
 	}
 
 	// Set footer
@@ -92,14 +94,20 @@ func CreateEmbed(title, data, footer string, color int, authorName, authorIcon, 
 	return embed
 }
 
-// Category filters. Counts and replaces matches with one category
-var DomainFilters = map[string][]string{
-	"Зеркала казино и букмекеры": {"casino", "melbet", "1xbet", "bet"},
-	// Here can be more categories in future. They are dynamic and do not require additional code
-}
-
 // ProcessDomains processing Banned and Unbanned Domains lists to send
-func ProcessDomains(client bot.Client, channelID snowflake.ID, title string, domains []string, todayCount, totalCount, embedColor int) {
+func ProcessDomains(ctx context.Context, client bot.Client, channelID snowflake.ID, title string, domains []string, todayCount, totalCount, embedColor int) {
+	// Category filters. Counts and replaces matches with one category
+	var DomainFilters = map[string][]string{
+		fmt.Sprintf("%s", cfg.Loc.Casinos): {"casino", "kazino", "melbet", "mostbet", "1xbet", "1xslots", "1win", "admiralx", "pinco", "pinup", "fortuna", "riobet", "vavada", "vulkan"},
+		fmt.Sprintf("%s", cfg.Loc.Films): {"kino", "film"},
+		// Here can be more categories in future. They are dynamic and do not require additional code
+	}
+
+	// Check if context closed
+	if ctx.Err() != nil {
+		return
+	}
+
 	// Initialize category counters
 	categoryCounts := make(map[string]int)
 	var filteredDomains []string
@@ -133,12 +141,17 @@ func ProcessDomains(client bot.Client, channelID snowflake.ID, title string, dom
 		}
 	}
 
+	// Check if context closed
+	if ctx.Err() != nil {
+		return
+	}
+
 	// 2. Build first block (Categories)
 	var categoryBlock strings.Builder
 	
 	// For every category
 	for cat, count := range categoryCounts {
-		categoryBlock.WriteString(fmt.Sprintf("**%s**: %d\n", cat, count))
+		categoryBlock.WriteString(fmt.Sprintf("**`%s`**: %d\n", cat, count))
 	}
 	// If no categories write newline
 	if categoryBlock.Len() > 0 {
@@ -173,29 +186,42 @@ func ProcessDomains(client bot.Client, channelID snowflake.ID, title string, dom
 	// 4. Send Embeds
 	// For every chunk we collected
 	for i, chunk := range chunks {
+		// Check if context closed
+		if ctx.Err() != nil {
+			return
+		}
+
 		// Set title
-		embedTitle := title
+		embedTitle := fmt.Sprintf("📙 %s (%s)", title, cfg.Loc.Domains)
 		// Add to title current and last page
 		if i > 0 {
 			embedTitle = title + fmt.Sprintf(" (%d/%d)", i+1, len(chunks))
 		}
 
 		// Create current chunk embed
-		embed := CreateEmbed(embedTitle, chunk, "", 0xff0000, "", "", "", true)
+		embed := CreateEmbed(embedTitle, chunk, cfg.Loc.Footer, embedColor, cfg.Embed.AuthorName, cfg.Embed.Icon, cfg.Embed.AuthorURL, true)
 		// Send it
 		SendEvent(client, channelID, "", []discord.Embed{embed}, false)
 	}
 
 	// 5. Final message
-	summary := fmt.Sprintf("%s: %d!\n", title, todayCount)
-	if totalCount > 0 { // If we have totalCount then it is banned list
-		summary += fmt.Sprintf("Всего заблокировано: %d\n", totalCount)
+	var summary string 
+	if totalCount > 0 { // Total Banned count provided to Banned Lists ONLY
+		summary = fmt.Sprintf("🔥 **%s: __%d__!**\n", cfg.Loc.Banned, todayCount)
+		summary += fmt.Sprintf("🚫 %s (%s): __%d__\n", cfg.Loc.TotalBan, cfg.Loc.Domains, totalCount)
+	} else {
+		summary = fmt.Sprintf("🔷 **%s: __%d__!**\n", cfg.Loc.Unbanned, todayCount)
 	}
 	SendEvent(client, channelID, summary, nil, false)
 }
 
 // ProcessIPs processing Banned and Unbanned IP lists to send
-func ProcessIPs(client bot.Client, channelID snowflake.ID, title string, ips []string, todayCount, totalCount, embedColor int) {
+func ProcessIPs(ctx context.Context, client bot.Client, channelID snowflake.ID, title string, ips []string, todayCount, totalCount, embedColor int) {
+	// Check if context closed
+	if ctx.Err() != nil {
+		return
+	}
+	
 	// Init ASN and country counters for new message format
 	asnCounts := make(map[string]int)
 	countryCounts := make(map[string]int)
@@ -208,7 +234,7 @@ func ProcessIPs(client bot.Client, channelID snowflake.ID, title string, ips []s
 		// If found info
 		if info != nil {
 			// Increment counter for combination "ISPName (ASN)""
-			asnCounts[fmt.Sprintf("%s (%d)", info.Provider, info.ASN)]++
+			asnCounts[fmt.Sprintf("%s (AS%d)", info.Provider, info.ASN)]++
 			countryCounts[info.Country]++
 		}
 	}
@@ -247,30 +273,38 @@ func ProcessIPs(client bot.Client, channelID snowflake.ID, title string, ips []s
 		countryList = countryList[:10]
 	}
 
+	// Check if context closed
+	if ctx.Err() != nil {
+		return
+	}
+
 	// 3. Format Embed's body
 	var desc strings.Builder
 	// Write description header
-	desc.WriteString("**Топ провайдеров (20):**\n")
+	desc.WriteString(fmt.Sprintf("**__%s (20)__:**\n", cfg.Loc.TopIsp))
 	// Fore every item in top ISP+ASN
 	for _, item := range asnList {
-		desc.WriteString(fmt.Sprintf("%s: %d Адресов\n", item.Key, item.Value))
+		desc.WriteString(fmt.Sprintf("`%s`: **%d IP**\n", item.Key, item.Value))
 	}
 	// Write description header
-	desc.WriteString("\n**Топ стран (10):**\n")
+	desc.WriteString(fmt.Sprintf("\n**__%s (10)__:**\n", cfg.Loc.TopCntry))
 	// Fore every item in top country
 	for _, item := range countryList {
-		desc.WriteString(fmt.Sprintf("%s: %d Адресов\n", item.Key, item.Value))
+		desc.WriteString(fmt.Sprintf("%s: **%d IP**\n", item.Key, item.Value))
 	}
 
 	// 4. Create embed
-	embed := CreateEmbed(title, desc.String(), "", 0xffaa00, "", "", "", true)
+	embed := CreateEmbed(fmt.Sprintf("📙 %s (%s)", title, cfg.Loc.Ips), desc.String(), cfg.Loc.Footer, embedColor, cfg.Embed.AuthorName, cfg.Embed.Icon, cfg.Embed.AuthorURL, true)
 	// Send new message with embed
 	SendEvent(client, channelID, "", []discord.Embed{embed}, false)
 
 	// 5. Final message
-	summary := fmt.Sprintf("%s: %d!\n", title, todayCount)
-	if totalCount > 0 {
-		summary += fmt.Sprintf("Всего заблокировано: %d\n", totalCount)
+	var summary string
+	if totalCount > 0 { // Total Banned count provided to Banned Lists ONLY
+		summary = fmt.Sprintf("🟠 **%s: __%d__!**\n", cfg.Loc.Banned, todayCount)
+		summary += fmt.Sprintf("❌ %s (%s): __%d__\n", cfg.Loc.TotalBan, cfg.Loc.Ips, totalCount)
+	} else {
+		summary = fmt.Sprintf("🔵 **%s: __%d__!**\n", cfg.Loc.Unbanned, todayCount)
 	}
 	// Send message
 	SendEvent(client, channelID, summary, nil, false)
@@ -288,11 +322,16 @@ type DailyStats struct {
 
 // SendDailyStats reads "Daily Statistics" plugin JSON and send total day statistics.
 // Creates a marker file to know when last message was sent. Skip if we already sent actual JSON data.
-func SendDailyStats(client bot.Client, channelID snowflake.ID, jsonPath, markerPath string, embedColor int) {
+func SendDailyStats(ctx context.Context, client bot.Client, channelID snowflake.ID, jsonPath, markerPath string, embedColor int) {
+	// Check if context closed
+	if ctx.Err() != nil {
+		return
+	}
+
 	// Check if JSON exists
 	jsonStat, err := os.Stat(jsonPath)
 	if err != nil {
-		fmt.Println("JSON file not found", err)
+		util.LogMsg("JSON file not found", err)
 		return
 	}
 
@@ -312,7 +351,7 @@ func SendDailyStats(client bot.Client, channelID snowflake.ID, jsonPath, markerP
 	// Parse JSON data into variable
 	var stats DailyStats
 	if err := json.Unmarshal(data, &stats); err != nil {
-		fmt.Println("Error parsing JSON:", err)
+		util.LogMsg("Error parsing JSON:", err)
 		return
 	}
 
@@ -320,20 +359,20 @@ func SendDailyStats(client bot.Client, channelID snowflake.ID, jsonPath, markerP
 	dateStr := time.Now().Format("02/01/06")
 	
 	// Set embed description format
-	desc := fmt.Sprintf(`**ДОМЕНЫ**
-		Сегодня заблокировано: %s!
-		Сегодня разблокировано: %s!
-		Всего заблокировано: %s!
+	desc := fmt.Sprintf(`**__%s__**
+		🔥 %s: __%s__!
+		🔷 %s: __%s__!
+		🚫 %s: __%s__!
 
-		**IP АДРЕСА**
-		Сегодня заблокировано: %s!
-		Сегодня разблокировано: %s!
-		Всего заблокировано: %s!`, 
-	stats.TodayBan, stats.TodayUnban, stats.TotalBan, 
-	stats.TodayIPBan, stats.TodayIPUnban, stats.TotalIPBan)
+		**__%s__**
+		🟠 %s: __%s__!
+		🟢 %s: __%s__!
+		❌ %s: __%s__!`,
+	strings.ToUpper(cfg.Loc.Domains), cfg.Loc.DayBan, stats.TodayBan, cfg.Loc.DayUnban, stats.TodayUnban, cfg.Loc.TotalBan, stats.TotalBan, 
+	strings.ToUpper(cfg.Loc.Ips), cfg.Loc.DayBan, stats.TodayIPBan, cfg.Loc.DayUnban, stats.TodayIPUnban, cfg.Loc.TotalBan, stats.TotalIPBan)
 
 	// Create new embed
-	embed := CreateEmbed(fmt.Sprintf("Статистика за %s", dateStr), desc, "", 0x00ff00, "", "", "", true)
+	embed := CreateEmbed(fmt.Sprintf("📌 %s %s", cfg.Loc.StatsDate, dateStr), desc, cfg.Loc.Footer, embedColor, cfg.Embed.AuthorName, cfg.Embed.Icon, cfg.Embed.AuthorURL, true)
 	
 	// Send message with embed
 	success := SendEvent(client, channelID, "", []discord.Embed{embed}, false)

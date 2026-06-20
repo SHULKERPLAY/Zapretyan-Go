@@ -5,16 +5,15 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"discord-sender/internal/cfg"
 	"discord-sender/internal/downloader"
+	"discord-sender/internal/util"
 
 	"github.com/oschwald/geoip2-golang"
 	"golang.org/x/text/cases"
@@ -22,8 +21,8 @@ import (
 )
 
 // Paths to City and ASN GeoLite2 Databases
-var CountryDB = path.Join(cfg.Self.Path, "dbip-country.mmdb")
-var ASNDB = path.Join(cfg.Self.Path, "dbip-asn.mmdb")
+var CountryDB string
+var ASNDB string
 
 // GeoService stores mmdb databases connections
 type GeoServices struct {
@@ -36,23 +35,27 @@ var GeoService *GeoServices
 
 // Initialize GeoManager on import
 func StartGeoService(ctx context.Context) {
+	var CountryDB = filepath.Join(cfg.Self.Path, "discord-sender", "dbip-country.mmdb")
+	var ASNDB = filepath.Join(cfg.Self.Path, "discord-sender", "dbip-asn.mmdb")
+
 	now := time.Now()
 
 	// Check and update
-	UpdateGeoLite(ctx, fmt.Sprintf("https://download.db-ip.com/free/dbip-country-lite-%d-%02d.mmdb.gz", now.Year(), now.Month()), CountryDB)
-	UpdateGeoLite(ctx, fmt.Sprintf("https://download.db-ip.com/free/dbip-asn-lite-%d-%02d.mmdb.gz", now.Year(), now.Month()), ASNDB)
+	if cfg.Data.MmdbUpdate {
+		UpdateGeoLite(ctx, fmt.Sprintf("https://download.db-ip.com/free/dbip-country-lite-%d-%02d.mmdb.gz", now.Year(), now.Month()), CountryDB)
+		UpdateGeoLite(ctx, fmt.Sprintf("https://download.db-ip.com/free/dbip-asn-lite-%d-%02d.mmdb.gz", now.Year(), now.Month()), ASNDB)
+	}
 	
 	// Initialize service
-	GeoService = NewGeoService("GeoLite2-City.mmdb", "GeoLite2-ASN.mmdb")
+	GeoService = NewGeoService(CountryDB, ASNDB)
 }
 
 // NewGeoService opening MaxMind databases
-func NewGeoService(cityPath, asnPath string) (*GeoServices) {
-	defer slog.Debug("NewGeoService() ended")
-	city, err := geoip2.Open(cityPath)
+func NewGeoService(countryPath, asnPath string) (*GeoServices) {
+	city, err := geoip2.Open(countryPath)
 	if err != nil {
-		slog.Error("Error while opening City Database!", "err", err)
-		slog.Error("All features requiring GeoLite service disabled!")
+		util.LogMsg("Error while opening Country Database: %v", err)
+		util.LogMsg("All features requiring GeoLite service disabled!")
 		cfg.Self.NoMMDB = true
 		return nil
 	}
@@ -60,8 +63,8 @@ func NewGeoService(cityPath, asnPath string) (*GeoServices) {
 	asn, err := geoip2.Open(asnPath)
 	if err != nil {
 		city.Close()
-		slog.Error("Error while opening ASN Database!", "err", err)
-		slog.Error("All features requiring GeoLite service disabled!")
+		util.LogMsg("Error while opening ASN Database!: %v", err)
+		util.LogMsg("All features requiring GeoLite service disabled!")
 		cfg.Self.NoMMDB = true
 		return nil
 	}
@@ -77,13 +80,11 @@ func (s *GeoServices) Close() {
 
 // Checks for updates and download requested edition of GeoLiteDB
 func UpdateGeoLite(ctx context.Context, link string, targetPath string) {
-	defer slog.Debug("UpdateGeoLite() ended")
-	slog.Debug("Target path", "path", targetPath)
 	info, err := os.Stat(targetPath)
 
 	// If file not found or it is older than 45 days
 	if os.IsNotExist(err) || time.Since(info.ModTime()) > 45*24*time.Hour {
-		slog.Warn("Database too old or not exist. Updating...")
+		util.LogMsg("Database too old or not exist. Updating...")
 		downloadAndExtractGeoLite(ctx, link, targetPath)
 	}
 }
@@ -97,6 +98,7 @@ func downloadAndExtractGeoLite(ctx context.Context, link, targetPath string) {
 	if err := unpackGz(gzip, targetPath); err != nil {
 		return
 	}
+	util.LogMsg("Database '%s' Updated", targetPath)
 }
 
 // UnpackGz accepts path to .gz archive and target path for .mmdb file.
@@ -151,34 +153,28 @@ type ResultData struct {
 
 // GetIPInfo collecting data from mmdb by query string
 func (s *GeoServices) GetIPInfo(inputIP string) *ResultData {
-	defer slog.Debug("GetIPInfo() ended")
-
 	// Validate IP
 	ip := net.ParseIP(inputIP)
 	if ip == nil {
-		slog.Warn("Wrong IP format!", "ip", inputIP)
+		util.LogMsg("Wrong IP format (%s)", inputIP)
 		return nil
 	}
 
 	result := &ResultData{IP: inputIP}
 
-	slog.Info("Got mmdb request", "ip", inputIP)
-
-	// Collecting data: City
+	// Collecting data: Country
 	countryRecord, err := s.CountryDB.Country(ip)
 	if err != nil {
-		slog.Error("Error while reading MaxMind Country Database", "err", err)
+		util.LogMsg("Error while reading MaxMind Country Database: %v", err)
 		return nil
 	}
 
-	// Get country code from city
+	// Get country code
 	isoCode := countryRecord.Country.IsoCode
 	countryName := countryRecord.Country.Names[cfg.Data.MmdbLang] // Locale output
 	if countryName == "" {
 		countryName = "Unknown Country"
 	}
-	
-	slog.Debug("Got country", "countryName", countryName)
 
 	// Put Unicode country flag to its name
 	if isoCode != "" {
@@ -192,12 +188,13 @@ func (s *GeoServices) GetIPInfo(inputIP string) *ResultData {
 	if err != nil {
 		// If IP not found in ASN base
 		result.Provider = "Unknown Provider"
-	} else {
+	} else { 
+		// TODO CHECK FOR ASN 0
 		result.ASN = asnRecord.AutonomousSystemNumber
 		rawOrg := asnRecord.AutonomousSystemOrganization
 		
 		// Convert raw ISP name
-		result.Provider = processISPName(result.ASN, rawOrg)
+		result.Provider = processISPName(rawOrg)
 	}
 
 	return result
@@ -205,16 +202,12 @@ func (s *GeoServices) GetIPInfo(inputIP string) *ResultData {
 
 // GetIPASN returns only ASN uint from mmdb by query string 
 func (s *GeoServices) GetIPASN (inputIP string) uint {
-	defer slog.Debug("GetIPASN() ended")
-
 	// Validate IP
 	ip := net.ParseIP(inputIP)
 	if ip == nil {
-		slog.Warn("Wrong IP format!", "ip", inputIP)
 		return 0
 	}
 
-	slog.Info("Got mmdb request", "ip", inputIP)
 	var result uint
 
 	// Get ASN
@@ -224,7 +217,6 @@ func (s *GeoServices) GetIPASN (inputIP string) uint {
 		result = 0
 	} else {
 		result = asnRecord.AutonomousSystemNumber
-		slog.Debug("Got ASN", "ASN", result)
 	}
 
 	return result
@@ -235,7 +227,6 @@ func (s *GeoServices) GetKnownASNOrg(rawip string) string {
 	// Validate IP
 	ip := net.ParseIP(rawip)
 	if ip == nil {
-		slog.Warn("Wrong IP format!", "ip", rawip)
 		return ""
 	}
 
@@ -251,9 +242,7 @@ func (s *GeoServices) GetKnownASNOrg(rawip string) string {
 }
 
 // processISPName cleans provider raw AS name to be more presentable
-func processISPName(asn uint, rawName string) string {
-	defer slog.Debug("processISPName() ended")
-
+func processISPName(rawName string) string {
 	// Clean raw name if ISP not in map
 	// All to uppercase to suffix deletion
 	clean := strings.ToUpper(rawName)
@@ -291,14 +280,11 @@ func processISPName(asn uint, rawName string) string {
 	// strings.Title is deprecated but it will work for now
 	clean = cases.Title(language.Und).String(strings.ToLower(clean))
 
-	slog.Debug("Converted", "asn", asn, "raw", rawName, "to", clean)
-
 	return clean
 }
 
 // isoCodeToEmoji translates country characters to unicode flags. e.g. "RU" to "🇷🇺"
 func isoCodeToEmoji(countryCode string) string {
-	defer slog.Debug("isoCodeToEmoji() ended")
 	if len(countryCode) != 2 {
 		return "🏳️"
 	}

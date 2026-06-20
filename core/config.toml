@@ -39,11 +39,11 @@ istotal = true   # Send total statistics ("Daily Statistics" extension with "lat
 [extension.data] # Data sources for send
 mmdb_update = true                             # Check updates and update databases if file >45 days old (updates from db-ip.com)
 mmdb_lang = "ru"                               # Supported langs with db-ip: "de", "en", "es", "fa", "fr", "ja", "ko", "pt-BR", "ru", "zh-CN"
-mmdbasn_path = "./dissender/dbip-asn.mmdb"     # Path to mmdb ASN database
-mmdbcountry_path = "./dissender/dbip-asn.mmdb" # Path to mmdb Country database
-total_json_path = "./statistics/latest.json"   # Path to "Daily Statistics" JSON file
+mmdbasn_path = "./discord-sender/dbip-asn.mmdb" # Path to mmdb ASN database relative to core data folder or absolute
+mmdbcountry_path = "./discord-sender/dbip-country.mmdb" # Path to mmdb Country database relative to core data folder or absolute
+total_json_path = "./statistics/latest.json"   # Path to "Daily Statistics" JSON file relative to core data folder or absolute
 
-[extension.channels] #Chat id's to send lists
+[extension.channels] # Chat id's to send lists
 bancid = ""     # ChannelID: Today Banned Domains
 unbancid = ""   # ChannelID: Today Unbanned Domains
 banipcid = ""   # ChannelID: Today Banned IP's (mmdb country and asn databases required)
@@ -55,25 +55,28 @@ iconurl = "https://lunarcreators.ru/wp-content/uploads/2025/11/discordiconmini.w
 embed_author_name = "Запретян-Go <3"
 embed_author_url = "https://discord.com/discovery/applications/907372459144147035"
 # Embed colors (HEX e.g. 0fafff)
-banclr = "ff5e5e"
-unbanclr = "5e87ff"
-banipclr = "ffa45e"
-unbanipclr = "5effac"
-totalclr = "ffff7d"
+banclr = "#ff5e5e"
+unbanclr = "#5e87ff"
+banipclr = "#ffa45e"
+unbanipclr = "#5effac"
+totalclr = "#ffff7d"
 
 [extension.locale] # Override output messages text
-stats_date = "Статистика за" # ...26/06/2026
+banned = "Добавлено записей в реестр"
+cat_casino = "Зеркала казино и букмекеры"
+cat_film = "Пиратские кино и сериалы"
 domains = "Домены"
+embed_footer = "🩵 С любовью, @shulkerplay"
 ips = "IP Адреса"
+newbanned = "В реестр Роскомнадзора добавлены"
+newunbanned = "Из реестра Роскомнадзора удалены"
+stats_date = "Статистика за" # ...26/06/2026
 today_banned = "Сегодня заблокировано"
 today_unbanned = "Сегодня разблокировано"
-total_banned = "Всего заблокировано"
-newbanned = "В реестр Роскомнадзора добавлены"
-banned = "Добавлено записей"
-newunbanned = "Из реестра Роскомнадзора удалены"
-unbanned = "Удалено записей"
 top_country = "Топ стран"
 top_isp = "Топ провайдеров"
+total_banned = "Всего заблокировано"
+unbanned = "Удалено записей из реестра"
 
 [[extension]]
 name = "File Logger"
@@ -91,9 +94,9 @@ source = "https://github.com/SHULKERPLAY/Zapretyan-Go"
 path = "./extensions/dailystat"
 enabled = false
 latestjson = false                        # Enable JSON with last day data about ban counters
-json_file = "./statistics/latest.json"    # Path to JSON relative to core data folder
+json_file = "./statistics/latest.json"    # Path to JSON relative to core data folder or absolute
 analytics = true                          # Enable bans data collecting in analytics.csv
-csv_file = "./statistics/analyticsV2.csv" # Path to CSV relative to core data folder
+csv_file = "./statistics/analyticsV2.csv" # Path to CSV relative to core data folder or absolute
 day_start = 0                             # Hour after which daily stats will be written daily counters reset to zero (0 to 23)
     [extension.locale]
     for24hrs = "за 24 часа"

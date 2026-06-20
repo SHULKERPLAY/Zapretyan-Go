@@ -65,7 +65,7 @@ type DiffObjectData struct {
 const (
 	pmode       string = "ONCE"
 	pjver       int    = 1 // Expected JSON version
-	pver        string = "1.0.0@f61tsi7f"
+	pver        string = "1.0.1@f61tsi7f"
 	jsontmp     string = "./statistics/stats_temp.json" // Path to temporary JSON counters
 	csvDefault  string = "./statistics/analyticsV2.csv"
 	jsonDefault string = "./statistics/latest.json"
@@ -206,22 +206,22 @@ func loadConfig(dataPath string) {
 
 	// Load path to CSV
 	if cfg.CsvPath != "" {
-		cfg.CsvPath = filepath.Join(dataPath, cfg.CsvPath)
+		cfg.CsvPath = smartJoin(dataPath, cfg.CsvPath)
 	} else {
-		cfg.CsvPath = filepath.Join(dataPath, csvDefault)
+		cfg.CsvPath = smartJoin(dataPath, csvDefault)
 		logMsg("Failed to read 'csv_file'. Defaulting to '%s'", cfg.CsvPath)
 	}
 
 	// Load path to JSON
 	if cfg.JsonPath != "" {
-		cfg.JsonPath = filepath.Join(dataPath, cfg.JsonPath)
+		cfg.JsonPath = smartJoin(dataPath, cfg.JsonPath)
 	} else {
-		cfg.JsonPath = filepath.Join(dataPath, jsonDefault)
+		cfg.JsonPath = smartJoin(dataPath, jsonDefault)
 		logMsg("Failed to read 'csv_file'. Defaulting to '%s'", cfg.JsonPath)
 	}
 
 	// Build path to temporary JSON
-	cfg.Jsontmp = filepath.Join(dataPath, jsontmp)
+	cfg.Jsontmp = smartJoin(dataPath, jsontmp)
 
 	// Check hour integer
 	if cfg.StartHour < 0 || cfg.StartHour > 23 {
@@ -257,6 +257,17 @@ func validateString(value, fallback string) string {
 	}
 
 	return strings.TrimSpace(value)
+}
+
+// Return absolute path if target is absolute.
+// If path is relative returns joined path string
+func smartJoin(base, target string) string {
+	// If target absolute return it without joining
+	if filepath.IsAbs(target) {
+		return filepath.Clean(target)
+	}
+	// Если относительный — безопасно склеиваем
+	return filepath.Join(base, target)
 }
 
 // processRknEvent
@@ -371,8 +382,8 @@ func UpdateDailyStats(deltaBan, deltaUnban, deltaIpBan, deltaIpUnban, currentTot
 	diffIpBan := tempStats.RawTotalIPBan - mainStats.RawTotalIPBan
 
 	// Format strings (%+d automaticly place + prefix to positive and - prefix to negative integer)
-	tempStats.TotalBanStr = fmt.Sprintf("%d (%+d %v)", tempStats.RawTotalBan, diffBan, loc.Hrs24)
-	tempStats.TotalIPBanStr = fmt.Sprintf("%d (%+d %v)", tempStats.RawTotalIPBan, diffIpBan, loc.Hrs24)
+	tempStats.TotalBanStr = fmt.Sprintf("%d `(%+d %v)`", tempStats.RawTotalBan, diffBan, loc.Hrs24)
+	tempStats.TotalIPBanStr = fmt.Sprintf("%d `(%+d %v)`", tempStats.RawTotalIPBan, diffIpBan, loc.Hrs24)
 
 	// Save back to temporary JSON
 	newData, err := json.Marshal(tempStats)
