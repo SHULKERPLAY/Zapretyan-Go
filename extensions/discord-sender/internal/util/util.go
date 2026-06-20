@@ -40,6 +40,14 @@ func HoldAction(ctx context.Context, action *bool, retries int, interval int) bo
 	return false
 }
 
+// Closes stdin of plugin to cause context cancel for shutdown
+// Created for tracking where plugin can close stdin
+func SilentCloseStdin() {
+	if err := os.Stdin.Close(); err == nil { // Close stdin and cause plugin context cancel
+		LogMsg("Stdin successfuly closed")
+	}
+}
+
 // Check if string empty and return fallback if it is
 func ValidateString(value, fallback string) string {
 	if strings.TrimSpace(value) == "" {

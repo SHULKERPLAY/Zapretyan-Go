@@ -35,8 +35,8 @@ var GeoService *GeoServices
 
 // Initialize GeoManager on import
 func StartGeoService(ctx context.Context) {
-	var CountryDB = filepath.Join(cfg.Self.Path, "discord-sender", "dbip-country.mmdb")
-	var ASNDB = filepath.Join(cfg.Self.Path, "discord-sender", "dbip-asn.mmdb")
+	var CountryDB = cfg.Data.CountryDB
+	var ASNDB = cfg.Data.AsnDB
 
 	now := time.Now()
 
@@ -124,7 +124,7 @@ func unpackGz(gzFilePath, outputMmdbPath string) error {
 	// Check if target path exist
 	outputDir := filepath.Dir(outputMmdbPath)
 	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
-		return fmt.Errorf("не удалось создать папки для пути: %w", err)
+		return fmt.Errorf("Error creating dir: %w", err)
 	}
 
 	// Create target .mmdb file
@@ -165,7 +165,7 @@ func (s *GeoServices) GetIPInfo(inputIP string) *ResultData {
 	// Collecting data: Country
 	countryRecord, err := s.CountryDB.Country(ip)
 	if err != nil {
-		util.LogMsg("Error while reading MaxMind Country Database: %v", err)
+		util.LogMsg("Error while reading Country Database: %v", err)
 		return nil
 	}
 
@@ -185,11 +185,11 @@ func (s *GeoServices) GetIPInfo(inputIP string) *ResultData {
 
 	// Get ISP org and its ASN
 	asnRecord, err := s.ASNDB.ASN(ip)
-	if err != nil {
+	if err != nil || asnRecord.AutonomousSystemNumber == 0 {
 		// If IP not found in ASN base
-		result.Provider = "Unknown Provider"
+		result.ASN = 0
+		result.Provider = "Unknown ISP"
 	} else { 
-		// TODO CHECK FOR ASN 0
 		result.ASN = asnRecord.AutonomousSystemNumber
 		rawOrg := asnRecord.AutonomousSystemOrganization
 		

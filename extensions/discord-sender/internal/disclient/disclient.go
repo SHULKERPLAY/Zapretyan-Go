@@ -4,7 +4,6 @@ import (
 	"context"
 	"discord-sender/internal/cfg"
 	"discord-sender/internal/util"
-	"os"
 	"sync"
 
 	"github.com/disgoorg/disgo"
@@ -25,7 +24,7 @@ func Start(ctx context.Context, wg *sync.WaitGroup) {
 	hold := util.HoldAction(ctx, &cfg.Self.ReadyCfg, 12, 5)
 	if !hold {
 		util.LogMsg("ERROR: CONFIGURATION WAITTIME EXCEEDED!")
-		os.Stdin.Close() // Close stdin and cause plugin context cancel
+		util.SilentCloseStdin() // Close stdin and cause plugin context cancel
 		return
 	}
 

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -93,7 +94,9 @@ func CoreListener(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 
 	// Check why cycle is ended
 	if err := scanner.Err(); err != nil {
-		util.LogMsg("Error reading from stdin: %v", err)
+		if !strings.Contains(err.Error(), "file already closed") && !strings.Contains(err.Error(), "use of closed network connection") {
+			util.LogMsg("Error reading from stdin: %v", err)
+		}
 	} else {
 		// If scanner passes till this moment without errors then data flow is closed (EOF)
 		util.LogMsg("stdin closed by core. Shutdown.")
@@ -142,7 +145,7 @@ func handleEvent(raw json.RawMessage, ctx context.Context) {
 	if base.Kill {
 		util.LogMsg("Got KILL signal. Shutdown.")
 		// Close default stdin
-		os.Stdin.Close() // Close stdin and cause plugin context cancel
+		util.SilentCloseStdin() // Close stdin and cause plugin context cancel
 		return
 	}
 
@@ -176,7 +179,7 @@ func handleEvent(raw json.RawMessage, ctx context.Context) {
 		hold := util.HoldAction(ctx, &cfg.Self.Ready, 24, 5)
 		if !hold {
 			util.LogMsg("ERROR: BOT CLIENT WAITTIME EXCEEDED!")
-			os.Stdin.Close() // Close stdin and cause plugin context cancel
+			util.SilentCloseStdin() // Close stdin and cause plugin context cancel
 			return
 		}
 
@@ -185,7 +188,7 @@ func handleEvent(raw json.RawMessage, ctx context.Context) {
 		if cfg.Build.Mode == "ONCE" {
 			util.LogMsg("Event processed! Shutdown")
 			// Close default stdin
-			os.Stdin.Close()
+			util.SilentCloseStdin()
 		}
 
 	default:

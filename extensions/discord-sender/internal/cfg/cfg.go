@@ -201,7 +201,7 @@ func LoadConfig(dataPath string) {
 	Self.Locale.Casinos = util.ValidateLength(Self.Locale.Casinos, "Зеркала казино и букмекеры", 1, 32)
 	Self.Locale.Films = util.ValidateLength(Self.Locale.Films, "Пиратские кино и сериалы", 1, 32)
 	Self.Locale.Domains = util.ValidateLength(Self.Locale.Domains, "Домены", 1, 32)
-	Self.Locale.Footer = util.ValidateLength(Self.Locale.Footer, "С любовью, @shulkerplay", 1, 32)
+	Self.Locale.Footer = util.ValidateLength(Self.Locale.Footer, "", 1, 32) // Empty. Default value with bot user tag replacing inside Embed Bulder func
 	Self.Locale.Ips = util.ValidateLength(Self.Locale.Ips, "IP Адреса", 1, 32)
 	Self.Locale.RknAdded = util.ValidateLength(Self.Locale.RknAdded, "В реестр Роскомнадзора добавлены", 1, 32)
 	Self.Locale.RknRemoved = util.ValidateLength(Self.Locale.RknRemoved, "Из реестра Роскомнадзора удалены", 1, 32)
@@ -233,7 +233,7 @@ func WaitConfig(ctx context.Context) bool {
 		select {
 		case <-ctx.Done():
 			util.LogMsg("ERROR: Config is nil on context end!")
-			os.Stdin.Close() // Close stdin and cause plugin context cancel
+			util.SilentCloseStdin() // Close stdin and cause plugin context cancel
 			return false
 		default:
 			time.Sleep(500 * time.Millisecond) // Small pause

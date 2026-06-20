@@ -98,8 +98,8 @@ func CreateEmbed(title, data, footer string, color int, authorName, authorIcon, 
 func ProcessDomains(ctx context.Context, client bot.Client, channelID snowflake.ID, title string, domains []string, todayCount, totalCount, embedColor int) {
 	// Category filters. Counts and replaces matches with one category
 	var DomainFilters = map[string][]string{
-		fmt.Sprintf("%s", cfg.Loc.Casinos): {"casino", "kazino", "melbet", "mostbet", "1xbet", "1xslots", "1win", "admiralx", "pinco", "pinup", "fortuna", "riobet", "vavada", "vulkan"},
-		fmt.Sprintf("%s", cfg.Loc.Films): {"kino", "film"},
+		fmt.Sprintf("%s", cfg.Loc.Casinos): {"casino", "kazino", "melbet", "mostbet", "1xbet", "1xslots", "1win", "admiralx", "pokerdom", "pinco", "pinup", "fortuna", "onlybets", "riobet", "vavada", "vulkan"},
+		fmt.Sprintf("%s", cfg.Loc.Films): {"kino", "film", "serial"},
 		// Here can be more categories in future. They are dynamic and do not require additional code
 	}
 
@@ -195,7 +195,7 @@ func ProcessDomains(ctx context.Context, client bot.Client, channelID snowflake.
 		embedTitle := fmt.Sprintf("📙 %s (%s)", title, cfg.Loc.Domains)
 		// Add to title current and last page
 		if i > 0 {
-			embedTitle = title + fmt.Sprintf(" (%d/%d)", i+1, len(chunks))
+			embedTitle = embedTitle + fmt.Sprintf(" (%d/%d)", i+1, len(chunks))
 		}
 
 		// Create current chunk embed

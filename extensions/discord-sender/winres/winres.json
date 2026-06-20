@@ -18,8 +18,8 @@
         "segment-heap": false,
         "use-common-controls-v6": true,
         "identity": {
-          "name": "shulkerplay.ZapretyanGoDailyStatistics",
-          "version": "1.0.1"
+          "name": "shulkerplay.ZapretyanGoDiscordSender",
+          "version": "1.0.0"
         }
       }
     }
@@ -28,22 +28,22 @@
     "#1": {
       "0000": {
         "fixed": {
-          "file_version": "1.0.1",
-          "product_version": "1.0.1"
+          "file_version": "1.0.0",
+          "product_version": "1.0.0"
         },
         "info": {
           "0409": {
-            "FileVersion": "v1.0.1",
-            "ProductVersion": "v1.0.1",
+            "FileVersion": "v1.0.0",
+            "ProductVersion": "v1.0.0",
             "Comments": "Built by GitHub Actions",
             "CompanyName": "SHULKERPLAY",
-            "FileDescription": "Zapretyan-Go Daily Statistics Plugin",
-            "InternalName": "dailystat.exe",
+            "FileDescription": "Zapretyan-Go Discord Sender Plugin",
+            "InternalName": "discord-sender.exe",
             "LegalCopyright": "© 2026 Aleksandr Volkhin. All rights reserved.",
             "LegalTrademarks": "",
-            "OriginalFilename": "dailystat.exe",
+            "OriginalFilename": "discord-sender.exe",
             "PrivateBuild": "",
-            "ProductName": "Zapretyan-Go Daily Statistics Plugin",
+            "ProductName": "Zapretyan-Go Discord Sender Plugin",
             "SpecialBuild": ""
           }
         }
