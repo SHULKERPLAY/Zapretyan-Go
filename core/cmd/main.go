@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"sync"
 	"syscall"
 	"time"
@@ -15,15 +16,32 @@ import (
 	"zapretyan-go/internal/extensionloader"
 	"zapretyan-go/internal/flags"
 	"zapretyan-go/internal/logger"
+	"zapretyan-go/internal/sysinfo"
 	"zapretyan-go/internal/sysservice"
 	"zapretyan-go/internal/utils"
-	"zapretyan-go/internal/sysinfo"
 	// DEBUG
 	// "zapretyan-go/internal/pprof"
 )
 
-const appVersion   string = "2.1.1.1" // App version
+const appVersion   string = "2.1.2.7" // App version
 const jsonProtoVer int    = 1 		  // Version of JSON message payload
+
+func init() {
+	// Check GOGC environment variable
+	// If user not defined own env then we set strict limit by default
+	if _, exists := os.LookupEnv("GOGC"); !exists {
+		// Set GC trigger on 50% of live heap size
+		debug.SetGCPercent(50)
+	}
+
+	// Check GOMEMLIMIT environment variable
+	/// If user not defined own env then we set soft limit by default
+	if _, exists := os.LookupEnv("GOMEMLIMIT"); !exists {
+		var defaultLimit int64 = 128 * 1024 * 1024 // 128 MB Limit
+		// Agressive Garbage Collection when we hit the limit size of defaultLimit
+		debug.SetMemoryLimit(defaultLimit)
+	}
+}
 
 func main() {
 	// DEBUG. CMD: "go tool pprof -http=:8081 http://localhost:8080/debug/pprof/heap"

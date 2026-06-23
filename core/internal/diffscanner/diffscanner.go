@@ -39,7 +39,7 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 	// First start of scan logic
 	slog.Info("Scanning for new changes...")
 	scan(ctx)
-	go utils.DumpMemoryStatistics(60, true, 5)
+	go utils.DumpMemoryStatistics(120, false, 0)
 
 	for {
 		select {
@@ -47,7 +47,7 @@ func Handler(ctx context.Context, wg *sync.WaitGroup) {
 			// Scan logic
 			slog.Info("Scanning for new changes...")
 			scan(ctx)
-			go utils.DumpMemoryStatistics(60, true, 5)
+			go utils.DumpMemoryStatistics(120, false, 0)
 
 		case <-ctx.Done():
 			// Graceful shutdown

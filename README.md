@@ -2,7 +2,7 @@
 
 <center>
 <h1>Zapretyan-Go</h1>
-<p><b>Кроссплатформенный локальный API с поддержкой кастомных самописных плагинов для любых операций с данными о новых блокировках</b></p>
+<p><b>Кроссплатформенный локальный API/консольное приложение для обработки списков блокировок интернет-ресурсов с поддержкой кастомных плагинов для любых операций с данными о новых блокировках!</b></p>
 <p>
   <img src="https://www.codefactor.io/repository/github/shulkerplay/zapretyan-go/badge/main" alt="CodeFactor">
   <img src="https://img.shields.io/github/v/release/shulkerplay/zapretyan-go" alt="GitHub Release">
@@ -22,8 +22,8 @@
     <ul>
         <li><a href="https://github.com/SHULKERPLAY/Zapretyan-Go/tree/main/extensions/localfs" style="color: lightgreen;">✅ LocalFS</a></li>
         Записывает JSON полученного события на диск в .txt расширении
-        <li><a style="color: orange;">⏳ DiscordSender</a></li>
-        В разработке. Повторяет логику оригинальной Запретян в новой форме, присылая уведомления сразу при наличии изменений
+        <li><a href="https://github.com/SHULKERPLAY/Zapretyan-Go/tree/main/extensions/discord-sender" style="color: lightgreen;">✅ Discord Sender</a></li>
+         Повторяет логику оригинальной Запретян в новой форме, присылая списки в чаты Discord сразу при наличии изменений, а также обновляет логику сообщений о изменениях в списках IP Адресов
         <li><a href="https://github.com/SHULKERPLAY/Zapretyan-Go/tree/main/extensions/dailystat" style="color: lightgreen;">✅ Daily Statistics</a></li>
         Повторяет функцию аналитики оригинальной Запретян. Генерирует один ежедневный JSON и собирает аналитику в CSV таблицу
         <li><a style="color: orange;">⏳ DiscordOnline</a></li>
@@ -33,7 +33,14 @@
         <li><a style="color: orange;">⏳ FTPWriter</a></li>
         В разработке. Записывает JSON события по указанным FTP путям.
     </ul>
-</details>
+</details><br>
+
+> [!TIP]
+> Если вы хотите использовать функционал оригинальной [SHULKERPLAY/Zapretyan](https://github.com/SHULKERPLAY/Zapretyan) - Используйте ядро с включенными и настроенными плагинами [Daily Statistics](https://github.com/SHULKERPLAY/Zapretyan-Go/tree/main/extensions/dailystat) и [Discord Sender](https://github.com/SHULKERPLAY/Zapretyan-Go/tree/main/extensions/discord-sender)!
+
+> [!IMPORTANT]
+> - [Каждый плагин имеет собственное описание](https://github.com/SHULKERPLAY/Zapretyan-Go/tree/main/extensions)
+> - [Отдельный раздел с примерами плагинов на разных языках программирования](https://github.com/SHULKERPLAY/Zapretyan-Go/tree/main/Lab/Examples)
 
 <h3>Содержание документации</h3>
 

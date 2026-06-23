@@ -13,7 +13,7 @@ import (
 	"zapretyan-go/internal/flags"
 )
 
-// UpdateModTime force changing Last Opened and Last Modified 
+// UpdateModTime force changing Last Opened and Last Modified
 // properties of file to current system time.
 func UpdateModTime(filePath string) error {
 	slog.Debug("UpdateModTime() ended")
@@ -170,6 +170,9 @@ func DumpStruct(title string, v interface{}) {
 // gcDelay int specifies delay before starting GC. gcDelay also increases memory info log output delay.
 // It is recomended to start from goroutine. It is recomended to start GC ONLY IF ALL ACTIVE OPERATIONS WAS COMPLETED!
 func DumpMemoryStatistics(delay int, gc bool, gcDelay int) {
+	if flags.Args.Loglevel != "debug" { // DEBUG ONLY FUNCTION
+		return
+	} 
 	// Start GC?
 	if gc {
 		// Delay to start GC

@@ -58,10 +58,10 @@ func ValidateString(value, fallback string) string {
 }
 
 // Check if string exceeds min or max character limit and return fallback if it is
-func ValidateLength(value, fallback string, min, max int) string {
+func ValidateLength(value, fallback string, minimum, maximum int) string {
 	length := utf8.RuneCountInString(strings.TrimSpace(value))
-	if length < min || length > max {
-		LogMsg("Length of string '%s' exceeds range %d-%d ", value, min, max)
+	if length < minimum || length > maximum {
+		LogMsg("Length of string '%s' exceeds range %d-%d ", value, minimum, maximum)
 		return fallback
 	}
 
