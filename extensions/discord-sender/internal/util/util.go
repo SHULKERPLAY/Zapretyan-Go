@@ -40,11 +40,19 @@ func HoldAction(ctx context.Context, action *bool, retries int, interval int) bo
 	return false
 }
 
-// Closes stdin of plugin to cause context cancel for shutdown
-// Created for tracking where plugin can close stdin
-func SilentCloseStdin() {
-	if err := os.Stdin.Close(); err == nil { // Close stdin and cause plugin context cancel
-		LogMsg("Stdin successfuly closed")
+// Channel marker for force exiting stdin scanner. 
+// When we closing it with close(StopScannerChan), all read functions exit quickly.
+var StopScannerChan = make(chan struct{})
+
+// Trigger to send close signal from any module
+// to stop event scanner and cause context cancel.
+func StopStdinScanner() {
+	select {
+	case <-StopScannerChan:
+		// Already closed. Doing nothing
+	default:
+		close(StopScannerChan)
+		os.Stdin.Close()
 	}
 }
 

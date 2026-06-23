@@ -24,7 +24,7 @@ func Start(ctx context.Context, wg *sync.WaitGroup) {
 	hold := util.HoldAction(ctx, &cfg.Self.ReadyCfg, 12, 5)
 	if !hold {
 		util.LogMsg("ERROR: CONFIGURATION WAITTIME EXCEEDED!")
-		util.SilentCloseStdin() // Close stdin and cause plugin context cancel
+		util.StopStdinScanner() // Close stdin and cause plugin context cancel
 		return
 	}
 

@@ -233,7 +233,7 @@ func WaitConfig(ctx context.Context) bool {
 		select {
 		case <-ctx.Done():
 			util.LogMsg("ERROR: Config is nil on context end!")
-			util.SilentCloseStdin() // Close stdin and cause plugin context cancel
+			util.StopStdinScanner() // Close stdin and cause plugin context cancel
 			return false
 		default:
 			time.Sleep(500 * time.Millisecond) // Small pause

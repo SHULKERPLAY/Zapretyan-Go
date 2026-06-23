@@ -231,7 +231,7 @@ func hashcheck(newTxt, newIpTxt, communityTxt, newTmp, newIpTmp, communityTmp st
 	}
 	// If community list enabled
 	if isCommunity {
-		if probe := utils.GetPathState(newIpTxt); !probe.Exists {
+		if probe := utils.GetPathState(communityTxt); !probe.Exists {
 			slog.Info("No latest community file found. Allowing to rotate.")
 			communityState = true
 		} else {

@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-const pver string = "1.0.0@36hbsug1" // App version
+const pver string = "1.0.1@36hbsug1" // App version
 const pjver int = 1                  // Version of JSON message payload
 const pmode string = "ONCE"          // Plugin mode
 

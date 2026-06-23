@@ -27,7 +27,7 @@
         "use-common-controls-v6": true,
         "identity": {
           "name": "shulkerplay.ZapretyanGoCore",
-          "version": "2.1.2.7"
+          "version": "2.1.2.8"
         }
       }
     }
@@ -36,13 +36,13 @@
     "#1": {
       "0000": {
         "fixed": {
-          "file_version": "2.1.2.7",
-          "product_version": "2.1.2.7"
+          "file_version": "2.1.2.8",
+          "product_version": "2.1.2.8"
         },
         "info": {
           "0409": {
-            "FileVersion": "v2.1.2.7",
-            "ProductVersion": "v2.1.2.7",
+            "FileVersion": "v2.1.2.8",
+            "ProductVersion": "v2.1.2.8",
             "Comments": "Built by GitHub Actions",
             "CompanyName": "SHULKERPLAY",
             "FileDescription": "Zapretyan-Go Core Service",

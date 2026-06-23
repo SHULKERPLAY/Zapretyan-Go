@@ -100,7 +100,13 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 				slog.Info("PLUGIN:", "name", ext.Name, "msg", scanner.Text())
 			}
 			if err := scanner.Err(); err != nil {
-				slog.Error("Log scanner error", "err", err)
+				// Check if error contains phrase about closed pipe
+				if strings.Contains(err.Error(), "file already closed") {
+					// Write log only of debug level because it is normal stop event 
+					slog.Debug("Scanner stopped: stdin was closed intentionally")
+				} else {
+					slog.Error("Log scanner error", "err", err)
+				}
 			}
 		}()
 
@@ -232,7 +238,13 @@ func RunOnceExtension(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionSta
 			slog.Info("PLUGIN:", "name", ext.Name, "msg", scanner.Text())
 		}
 		if err := scanner.Err(); err != nil {
-			slog.Error("Log scanner error", "err", err)
+			// Check if error contains phrase about closed pipe
+			if strings.Contains(err.Error(), "file already closed") {
+				// Write log only of debug level because it is normal stop event 
+				slog.Debug("Scanner stopped: stdin was closed intentionally")
+			} else {
+				slog.Error("Log scanner error", "err", err)
+			}
 		}
 	}()
 

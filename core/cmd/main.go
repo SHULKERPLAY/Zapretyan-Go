@@ -23,7 +23,7 @@ import (
 	// "zapretyan-go/internal/pprof"
 )
 
-const appVersion   string = "2.1.2.7" // App version
+const appVersion   string = "2.1.2.8" // App version
 const jsonProtoVer int    = 1 		  // Version of JSON message payload
 
 func init() {
