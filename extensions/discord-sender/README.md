@@ -80,14 +80,28 @@ unbanned = "Удалено записей из реестра"
 ### `[extension.sender]` - Раздел с переключателями каналов отправки
 - `isban` (По умолчанию: `true`)
   - Включает отправку новых заблокированых доменов в `bancid`
+
+![](https://github.com/SHULKERPLAY/Zapretyan-Go/blob/main/extensions/discord-sender/ban.webp) 
+
 - `isunban` (По умолчанию: `true`)
   - Включает отправку новых разблокированых доменов в `unbancid`
+
+![](https://github.com/SHULKERPLAY/Zapretyan-Go/blob/main/extensions/discord-sender/unban.webp) 
+
 - `isbanip` (По умолчанию: `true`)
   - Включает отправку новых заблокированых IP адресов в `banipcid`
+
+![](https://github.com/SHULKERPLAY/Zapretyan-Go/blob/main/extensions/discord-sender/banip.webp) 
+
 - `isunbanip` (По умолчанию: `true`)
   - Включает отправку новых разблокированых IP адресов в `unbanipcid`
+
+![](https://github.com/SHULKERPLAY/Zapretyan-Go/blob/main/extensions/discord-sender/unbanip.webp) 
+
 - `istotal` (По умолчанию: `true`)
   - Включает отправку ежедневной статистики в `totalcid`. Требует валидный путь к JSON, создаваемый плагином [`Daily Statistics`](https://github.com/SHULKERPLAY/Zapretyan-Go/tree/main/extensions/dailystat)
+
+![](https://github.com/SHULKERPLAY/Zapretyan-Go/blob/main/extensions/discord-sender/total.webp) 
 
 ### `[extension.data]` - Раздел с параметрами источников данных
 - `mmdb_update` (По умолчанию: `true`)
