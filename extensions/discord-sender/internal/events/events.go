@@ -87,7 +87,7 @@ func CoreListener(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		// Check 1: If chan closed before Scan()
 		select {
 		case <-util.StopScannerChan: // If scanner must stop
-			util.LogMsg("Scanner stop requested before scan. Exiting.")
+			util.LogMsg("Scanner stop requested.")
 			goto exitSequence
 		case hasNext := <-scanResult: // If scanner found line
 			if !hasNext { // Check if we have next line
