@@ -9,7 +9,6 @@
   <img src="https://img.shields.io/github/actions/workflow/status/shulkerplay/zapretyan-go/release.yml" alt="GitHub Actions Workflow Status">
   <img src="https://img.shields.io/github/languages/code-size/shulkerplay/zapretyan-go" alt="GitHub code size in bytes">
   <img src="https://img.shields.io/discord/683814496942424078?label=Discord" alt="Discord">
-  <img src="https://img.shields.io/youtube/channel/views/UCWoypHEOaTh6N9zwCtRzr0w" alt="YouTube Channel Views">
   <a href="https://lunarcreators.ru">
     <img src="https://img.shields.io/website?url=https%3A%2F%2Flunarcreators.ru&link=https%3A%2F%2Flunarcreators.ru" alt="Website">
   </a>
