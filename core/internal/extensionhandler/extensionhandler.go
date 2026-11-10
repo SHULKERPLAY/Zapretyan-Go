@@ -93,8 +93,11 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 		slog.Info("STREAM extension started", "name", ext.Name)
 
 		// Output Log from stderr
-		go func() {
-			scanner := bufio.NewScanner(ext.Stderr)
+        go func() {
+	        const maxCapacity = 1 * 1024 * 1024 // Set 1MB of log buffer
+            buf := make([]byte, 64*1024)
+	    	scanner := bufio.NewScanner(ext.Stderr)
+            scanner.Buffer(buf, maxCapacity)
 			for scanner.Scan() {
 				// Formatting plugin output
 				slog.Info("PLUGIN:", "name", ext.Name, "msg", scanner.Text())
@@ -104,9 +107,12 @@ func superviseStream(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionStat
 				if strings.Contains(err.Error(), "file already closed") {
 					// Write log only of debug level because it is normal stop event 
 					slog.Debug("Scanner stopped: stdin was closed intentionally")
-				} else {
-					slog.Error("Log scanner error", "err", err)
-				}
+				} else if strings.Contains(err.Error(), "token too long") {
+                    // Warn user about potential error that outputs more than 1024KB of text
+                    slog.Warn("PLUGIN OUTPUT MESSAGE TOO LARGE TO DISPLAY", "name", ext.Name)
+                } else {
+				    slog.Error("Log scanner error", "err", err)
+			    }
 			}
 		}()
 
@@ -232,7 +238,10 @@ func RunOnceExtension(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionSta
 
 	// Output Log from stderr
 	go func() {
+        const maxCapacity = 1 * 1024 * 1024 // Set 1MB of log buffer
+        buf := make([]byte, 64*1024)
 		scanner := bufio.NewScanner(ext.Stderr)
+        scanner.Buffer(buf, maxCapacity)
 		for scanner.Scan() {
 			// Formatting plugin output
 			slog.Info("PLUGIN:", "name", ext.Name, "msg", scanner.Text())
@@ -242,7 +251,9 @@ func RunOnceExtension(ctx context.Context, wg *sync.WaitGroup, ext *ExtensionSta
 			if strings.Contains(err.Error(), "file already closed") {
 				// Write log only of debug level because it is normal stop event 
 				slog.Debug("Scanner stopped: stdin was closed intentionally")
-			} else {
+			} else if strings.Contains(err.Error(), "token too long") {
+                slog.Warn("PLUGIN OUTPUT MESSAGE TOO LARGE TO DISPLAY", "name", ext.Name)
+            } else {
 				slog.Error("Log scanner error", "err", err)
 			}
 		}
